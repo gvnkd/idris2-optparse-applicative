@@ -1,0 +1,18 @@
+package optparse-applicative
+
+authors = "Rune"
+
+modules =
+  Options.Applicative.Types,
+  Options.Applicative.Builder,
+  Options.Applicative.Modifiers,
+  Options.Applicative.Run,
+  Options.Applicative.Help,
+  Options.Applicative.Subparser,
+  Options.Applicative.Error,
+  Options.Applicative.Multi,
+  Options.Applicative.Env,
+  Options.Applicative.Validation,
+  Options.Applicative.BashCompletion
+
+sourcedir = "src"

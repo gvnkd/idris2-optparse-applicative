@@ -7,7 +7,11 @@ import Data.String
 ||| Render a parse error as a human-readable string.
 export
 renderError : ParseError -> String
-renderError err = ?rhs_renderError
+renderError err = 
+    case err of
+        MissingOption opt      => "error: Missing option " ++ opt
+        InvalidOption o val    => "error: Invalid value for " ++ o ++ ": " ++ val
+        UnexpectedError arg     => "error: Unexpected argument: " ++ arg
 
 ||| Format a missing option error.
 export

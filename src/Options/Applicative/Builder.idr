@@ -22,7 +22,7 @@ argument metavar = Argument metavar
 ||| Create an option parser with a default value.
 export
 option : (names : List String) -> (defaultValue : String) -> Parser String
-option names defaultValue = Alt (Option names "ARG") ?rhs_option_fallback
+option names defaultValue = Alt (Option names "ARG") (Pure defaultValue)
 
 ||| Create a subcommand parser from a list of named parsers.
 export

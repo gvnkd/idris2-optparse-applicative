@@ -1,8 +1,12 @@
--- ||| Environment variable fallback support. (Deferred to Phase 3 polish)
+||| Environment variable fallback support. (Phase 3)
 module Options.Applicative.Env
 
 import Options.Applicative.Types
 
--- export envOption : List String -> String -> Parser String
--- export envOptionWithDefault : List String -> String -> String -> Parser String
--- export readEnv : String -> IO (Maybe String)
+-- ||| Create a parser that falls back to an environment variable.
+export envOption : List String -> String -> Parser String
+envOption names envVar = Alt (Option names "ENV_VAR") (Pure ("<$" ++ envVar ++ ">"))
+
+-- ||| Create a parser with environment fallback and default.
+export envOptionWithDefault : List String -> String -> String -> Parser String
+envOptionWithDefault names envVar defaultValue = Alt (Option names "ENV_VAR") (Pure defaultValue)

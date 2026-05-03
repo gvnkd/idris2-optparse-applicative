@@ -3,12 +3,13 @@ module Options.Applicative.Run
 
 import Options.Applicative.Types
 import Options.Applicative.Error
+import System
 import Data.List
 
 mutual
   finalizeApp : Parser (x -> a) -> Parser x -> Maybe a
   finalizeParser : Parser a -> Maybe a
-  finalizeParser p = 
+  finalizeParser p =
     case p of
         Pure x             => Just x
         Flag names         => Just False -- Default to false if flag not seen
@@ -18,7 +19,7 @@ mutual
         App pf pa          => finalizeApp pf pa
         Alt p1 p2          => finalizeParser p1 <|> finalizeParser p2
 
-  finalizeApp pf pa = 
+  finalizeApp pf pa =
     case finalizeParser pf of
         Just f => case finalizeParser pa of
             Just x => Just (f x)
@@ -39,7 +40,7 @@ matchArg p arg =
 
 ||| Helper: consume remaining arguments.
 consumeArgs : Parser a -> List String -> StepResult a
-consumeArgs p [] = 
+consumeArgs p [] =
     case finalizeParser p of
         Just val  => StepSuccess (Pure val) val []
         Nothing   => StepFailure (MissingOption "Unsatisfied parser")
@@ -60,14 +61,14 @@ consumeArgs p (arg :: rest) =
 
   where
     reducePf : Parser (x -> a) -> x -> List String -> StepResult a
-    reducePf pf' val args = 
+    reducePf pf' val args =
         case consumeArgs pf' args of
             StepSuccess _ f leftover => StepSuccess (Pure (f val)) (f val) leftover
             StepFailure err          => StepFailure err
             StepMore p'' rest       => reducePf p'' val rest
 
     reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
-    reduceApp pf pa args = 
+    reduceApp pf pa args =
         case consumeArgs pa args of
             StepSuccess _ x leftover => reducePf pf x leftover
             StepFailure err          => StepFailure err
@@ -75,7 +76,7 @@ consumeArgs p (arg :: rest) =
 
     tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
     tryLeftOrRight _ _ []     = StepFailure (MissingOption "No arguments for alternative")
-    tryLeftOrRight p1 p2 (arg :: rest) = 
+    tryLeftOrRight p1 p2 (arg :: rest) =
         case matchArg p1 arg of
             StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
             StepFailure _ => consumeArgs p2 (arg :: rest)
@@ -84,7 +85,7 @@ consumeArgs p (arg :: rest) =
 ||| Run a parser against a list of command-line arguments.
 export
 runParser : Parser a -> List String -> ParseResult a
-runParser p args = 
+runParser p args =
     case consumeArgs p args of
         StepSuccess _ val []         => Success val
         StepSuccess _ val leftover   => Failure (UnexpectedError "Extra arguments provided")
@@ -92,14 +93,23 @@ runParser p args =
         StepMore updatedTree rest    => runParser updatedTree rest
 
 ||| Run a parser with explicit argument list (primary interface).
--- ||| Note: System.getArgs requires FFI imports unavailable in base Idris 2.
--- |||     Usage: runParser myParser args from Main or via execParserWith.
 export
 runParserWith : Parser a -> List String -> ParseResult a
-runParserWith p = runParser p
+runParserWith p args = runParser p args
 
-||| Stub: Run with empty args (deferred system integration to post-beta).
--- TODO(beta2): integrate System.Environment.getArgs when available.
+||| Run a parser by fetching arguments from the environment.
 export
-execParser : Parser a -> IO (ParseResult a)
-execParser p = pure $ runParserWith p []
+execParser : {auto _ : HasIO io} -> Parser a -> io (ParseResult a)
+execParser p = do
+  args <- getArgs
+  pure $ runParserWith p args
+
+||| Run a parser and handle errors/exit. Dies on parse failure after rendering error text.
+export
+customExecParser : {auto _ : HasIO io} -> Parser a -> io a
+customExecParser p = do
+  result <- execParser p
+  case result of
+    Success val         => pure val
+    Failure err         => putStrLn (renderError err) >> die "parse failure"
+    CompletionInvoked   => putStrLn "Completion invoked" >> die "completion invoked"

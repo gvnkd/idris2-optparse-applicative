@@ -4,21 +4,6 @@ module Options.Applicative.Run
 import Options.Applicative.Types
 import Data.List
 
-||| Run a parser against a list of command-line arguments.
-export
-runParser : Parser a -> List String -> ParseResult a
-runParser p args = ?rhs_runParser
-
-||| Run a parser with default program arguments.
-export
-execParser : Parser a -> IO (ParseResult a)
-execParser p = ?rhs_execParser
-
-||| Run a parser and handle errors/exit.
-export
-customExecParser : Parser a -> IO a
-customExecParser p = ?rhs_customExecParser
-
 ||| Helper: match a single argument against a parser.
 matchArg : Parser a -> String -> StepResult a
 matchArg p arg =
@@ -39,14 +24,14 @@ consumeArgs p [] =
         _          => StepFailure (MissingOption "Unsatisfied parser")
 
 consumeArgs p (arg :: rest) =
-   case p of
-        Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
-        Option nm _    => if arg `elem` nm then consumeArgs (Pure arg) rest else consumeArgs p rest
-        Argument _     => consumeArgs (Pure arg) rest
-        Pure x         => StepSuccess (Pure x) x (arg :: rest)
-        Fail           => StepFailure (UnexpectedError "Failed to parse")
-        App pf pa      => ?rhs_app_branch pf pa (arg :: rest)
-        Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
+    case p of
+         Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
+         Option nm _    => if arg `elem` nm then consumeArgs (Pure arg) rest else consumeArgs p rest
+         Argument _     => consumeArgs (Pure arg) rest
+         Pure x         => StepSuccess (Pure x) x (arg :: rest)
+         Fail           => StepFailure (UnexpectedError "Failed to parse")
+         App pf pa      => ?rhs_app_branch pf pa (arg :: rest)
+         Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
   where
     tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
@@ -57,3 +42,23 @@ consumeArgs p (arg :: rest) =
               StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
               StepFailure _ => consumeArgs p2 (arg :: rest) -- Fix 1: Fallback immediately if left fails strictly
               otherResult => otherResult -- Fix 2: If matchArg is stuck (StepMore), just pass it up to caller
+
+||| Run a parser against a list of command-line arguments.
+export
+runParser : Parser a -> List String -> ParseResult a
+runParser p args = 
+    case consumeArgs p args of
+        StepSuccess _ val []         => Success val
+        StepSuccess _ val leftover   => Failure (UnexpectedError "Extra arguments provided")
+        StepFailure err              => Failure err
+        StepMore updatedTree rest    => runParser updatedTree rest
+
+||| Run a parser with default program arguments.
+export
+execParser : Parser a -> IO (ParseResult a)
+execParser p = ?rhs_execParser
+
+||| Run a parser and handle errors/exit.
+export
+customExecParser : Parser a -> IO a
+customExecParser p = ?rhs_customExecParser

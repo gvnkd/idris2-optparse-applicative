@@ -14,6 +14,8 @@ modules =
   Options.Applicative.Env,
   Options.Applicative.Validation,
   Options.Applicative.BashCompletion,
-  Main
+   Main,
+   TestParse
+
 
 sourcedir = "src"

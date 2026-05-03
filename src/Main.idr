@@ -1,22 +1,35 @@
-||| Minimal executable entry point to test the Phase 2 parser library.
+||| Executable entry point for optparse-applicative demo.
 module Main
 
 import Options.Applicative.Types
 import Options.Applicative.Builder
 import Options.Applicative.Run
+import Options.Applicative.Multi
 
--- | A simple data structure to hold our parsed CLI configuration.
-record Config where
-  constructor MkConfig
+-- ||| Configuration data structure parsed from command line.
+record ToolConfig where
+  constructor MkToolConfig
   verbose    : Bool
   output     : String
+  inputFiles : List String
 
--- | Construct the main CLI parser using our Applicative Builder combinators.
-mainParser : Parser Config
-mainParser = pure MkConfig 
-          <*> flag' ["-v", "--verbose"] 
+-- ||| Build the CLI parser tree using Applicative composition.
+mainParser : Parser ToolConfig
+mainParser = pure MkToolConfig
+          <*> flag' ["-v", "--verbose"]
           <*> strOption ["-o", "--output"]
+          <*> many (argument "FILE")
 
--- | Run the parser manually for testing purposes via REPL or build.
-testParse : List String -> ParseResult Config
-testParse args = runParser mainParser args
+-- ||| Test helper: parse an explicit argument list without touching system IO.
+testParse : List String -> ParseResult ToolConfig
+testParse args = runParserWith mainParser args
+
+-- ||| Main entry point: fetch real CLI args, parse, and print result.
+main : IO ()
+main = do
+  conf <- customExecParser mainParser
+  putStrLn "=== Parsed config ==="
+  putStrLn $ "verbose    = " ++ show (verbose conf)
+  putStrLn $ "output     = " ++ output conf
+  putStrLn $ "inputFiles = " ++ show (inputFiles conf)
+  putStrLn "====================="

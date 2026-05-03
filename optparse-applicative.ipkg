@@ -13,6 +13,7 @@ modules =
   Options.Applicative.Multi,
   Options.Applicative.Env,
   Options.Applicative.Validation,
-  Options.Applicative.BashCompletion
+  Options.Applicative.BashCompletion,
+  Main
 
 sourcedir = "src"

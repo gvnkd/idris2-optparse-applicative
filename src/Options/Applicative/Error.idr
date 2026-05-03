@@ -26,7 +26,7 @@ invalidOptionError opt val = "Invalid value for option " ++ opt ++ ": " ++ val
 ||| Format an unexpected argument error.
 export
 unexpectedError : String -> String
-unexpectedError arg = ?rhs_unexpectedError
+unexpectedError arg = "Unexpected argument: " ++ arg
 
 ||| Exit with an error message.
 export

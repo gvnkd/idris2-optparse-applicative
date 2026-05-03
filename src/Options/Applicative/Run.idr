@@ -84,5 +84,5 @@ customExecParser p = do
   result <- execParser p
   case result of
     Success val         => pure val
-    Failure err         => do putStrLn $ renderError err; ?rhs_io_stub_val
-    CompletionInvoked   => do putStrLn "Completion invoked"; ?rhs_completion_stub_val
+    Failure err         => do putStrLn $ renderError err; pure ?rhs_final_fail_val
+    CompletionInvoked   => do putStrLn "Completion invoked"; pure ?rhs_final_completion_val

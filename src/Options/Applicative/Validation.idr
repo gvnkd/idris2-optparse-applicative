@@ -21,7 +21,18 @@ mkReader _ name conv = MkOptReader name conv
 -- ||| Parse decimal digits into a Nat.
 readNatStr : List Char -> Maybe Nat
 readNatStr []       = Nothing
-readNatStr cs       = if all isDigit cs then Just 0 else Nothing -- TODO(beta2): actual digit accumulation
+readNatStr cs = if all isDigit cs then Just (go 0 cs) else Nothing
+  where
+    -- Forward declaration to allow go to reference digit before its definition below
+    digit : Char -> Nat
+
+    go : Nat -> List Char -> Nat
+    go acc []     = acc
+    go acc (c::r) = go ((acc * 10) + digit c) r
+
+    digit '0' = 0; digit '1' = 1; digit '2' = 2; digit '3' = 3
+    digit '4' = 4; digit '5' = 5; digit '6' = 6; digit '7' = 7
+    digit '8' = 8; digit '9' = 9; digit _   = 0
 
 -- ||| A reader that parses integers via readNat with sign handling.
 export readInt : String -> Maybe Int

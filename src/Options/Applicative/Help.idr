@@ -8,7 +8,7 @@ import Data.String
 ||| Generate usage line for a parser.
 export
 usage : Parser a -> String
-usage p = ?rhs_usage
+usage _p = "Usage: <program> [OPTIONS]"
 
 ||| Generate full help text for a parser.
 export

@@ -35,8 +35,26 @@ matchArg p arg =
 consumeArgs : Parser a -> List String -> StepResult a
 consumeArgs _ [] = StepFailure (MissingOption "Expected argument")
 
-consumeArgs p (arg :: rest) =
-    case matchArg p arg of
-        StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
-        StepFailure err         => StepFailure err
-        StepMore p' leftover    => consumeArgs p' (leftover ++ rest)
+consumeArgs p args = 
+    case p of
+        Flag names     => ?rhs_consume_flag names args
+        Option nm mv   => ?rhs_consume_option nm mv args
+        Argument mv    => ?rhs_consume_argument args
+        Pure x         => StepSuccess (Pure x) x args
+        Fail           => StepFailure (UnexpectedError "Failed to parse")
+        App pf pa      => consumeApp pf pa args
+        Alt p1 p2      => tryLeftOrRight p1 p2 args
+
+  where
+    tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
+
+    tryLeftOrRight _ _ []     = StepFailure (MissingOption "No arguments for alternative")
+    tryLeftOrRight p1 p2 (arg :: rest) = 
+          case matchArg p1 arg of
+              StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
+              StepFailure _ => ?rhs_try_right p2 args
+              StepMore _ leftover => ?rhs_alt_more leftover args
+
+    consumeApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
+
+    consumeApp pf pa remainingArgs = ?rhs_consume_app pf pa remainingArgs

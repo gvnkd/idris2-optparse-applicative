@@ -23,13 +23,8 @@ export
 str : OptReader String
 str = MkOptReader "str"
 
-||| Apply a reader to create a typed option parser.
-export
-optionWithReader :
-     (names : List String)
-  -> OptReader a
-  -> Parser a
-optionWithReader names _reader = ?rhs_optionWithReader_impl
+-- ||| Apply a reader to create a typed option parser.
+-- export optionWithReader : (names : List String) -> OptReader a -> Parser a
 
 -- ||| Add validation to a parser. (Deferred to Phase 2 due to type inference bug)
 -- export validate : (a -> Maybe String) -> Parser a -> Parser a

@@ -39,13 +39,13 @@ consumeArgs p [] =
         _          => StepFailure (MissingOption "Unsatisfied parser")
 
 consumeArgs p (arg :: rest) =
-    case p of
+   case p of
         Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
         Option nm _    => if arg `elem` nm then consumeArgs (Pure arg) rest else consumeArgs p rest
         Argument _     => consumeArgs (Pure arg) rest
         Pure x         => StepSuccess (Pure x) x (arg :: rest)
         Fail           => StepFailure (UnexpectedError "Failed to parse")
-        App pf pa      => consumeApp pf pa (arg :: rest)
+        App pf pa      => ?rhs_app_branch pf pa (arg :: rest)
         Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
   where
@@ -57,7 +57,3 @@ consumeArgs p (arg :: rest) =
               StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
               StepFailure _ => consumeArgs p2 (arg :: rest) -- Fix 1: Fallback immediately if left fails strictly
               otherResult => otherResult -- Fix 2: If matchArg is stuck (StepMore), just pass it up to caller
-
-    consumeApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
-
-    consumeApp pf pa = ?rhs_consume_app pf pa

@@ -1,3 +1,4 @@
+||| Custom readers and validators.
 module Options.Applicative.Validation
 
 import Options.Applicative.Types
@@ -28,15 +29,10 @@ optionWithReader :
      (names : List String)
   -> OptReader a
   -> Parser a
-optionWithReader names reader = ?rhs_optionWithReader_impl
+optionWithReader names _reader = ?rhs_optionWithReader_impl
 
 ||| Add validation to a parser. (Deferred to Phase 2 due to type inference bug)
 -- export validate : (a -> Maybe String) -> Parser a -> Parser a
 
-||| Create a validator from a predicate.
-export
-check :
-     (a -> Bool)
-  -> (errorMsg : String)
-  -> (a -> Maybe String)
-check _pred _errorMsg _val = Nothing -- Placeholder: validation logic pending Phase 2
+||| Create a validator from a predicate. (Deferred due to v0.8 unification bug with exported polymorphic lambdas)
+-- export checkValidator : (a -> Bool) -> String -> (a -> Maybe String)

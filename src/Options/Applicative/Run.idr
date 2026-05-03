@@ -23,7 +23,7 @@ customExecParser p = ?rhs_customExecParser
 matchArg : Parser a -> String -> StepResult a
 matchArg p arg =
     case p of
-      Flag names         => ?rhs_match_flag
+      Flag names         => if arg `elem` names then StepSuccess True [] else StepFailure (UnexpectedError arg)
       Option nm mv       => ?rhs_match_option nm mv
       Argument _         => StepSuccess arg []
       Pure x             => ?rhs_match_pure x

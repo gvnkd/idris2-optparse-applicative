@@ -42,7 +42,7 @@ metavar text m@(MkMod l s h _ dv) = MkMod l s h (Just text) dv
 ||| Set a default value for an option.
 export
 value : String -> Mod -> Mod
-value val mod = ?rhs_value
+value val m@(MkMod l s h mv _) = MkMod l s h mv (Just val)
 
 ||| Apply modifiers to create an option parser.
 export

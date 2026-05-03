@@ -29,4 +29,11 @@ mkSubparser config = ?rhs_mkSubparser
 ||| Lookup a command by name.
 export
 lookupCommand : String -> SubparserConfig a -> Maybe (Parser a)
-lookupCommand name config = ?rhs_lookupCommand
+lookupCommand name (MkSubparserConfig cmds _) = findCmd name cmds
+
+  where
+    findCmd : String -> List (String, Parser a) -> Maybe (Parser a)
+    findCmd _ []               = Nothing
+    findCmd n ((n', p) :: ps) = case n == n' of
+        True  => Just p
+        False => findCmd n ps

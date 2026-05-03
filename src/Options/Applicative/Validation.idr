@@ -39,4 +39,4 @@ check :
      (a -> Bool)
   -> (errorMsg : String)
   -> (a -> Maybe String)
-check pred errorMsg = ?rhs_check
+check _pred _errorMsg _val = Nothing -- Placeholder: validation logic pending Phase 2

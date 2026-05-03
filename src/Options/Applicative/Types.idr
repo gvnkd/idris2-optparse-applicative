@@ -39,6 +39,7 @@ data StepResult : Type -> Type where
   StepMore    : Parser a -> List String -> StepResult a
 
 ||| Make Parser a Functor.
+public export
 Functor Parser where
   map f p =
     case p of
@@ -51,11 +52,13 @@ Functor Parser where
       Fail               => Fail
 
 ||| Make Parser an Applicative.
+public export
 Applicative Parser where
   pure = Pure
   pf <*> pa = App pf pa
 
 ||| Make Parser an Alternative.
+public export
 Alternative Parser where
   empty = Fail
   p1 <|> p2 = Alt p1 (force p2)

@@ -22,4 +22,4 @@ exactly n p = ?rhs_exactly
 ||| Combine multiple option results.
 export
 concatOptions : Parser (List a) -> Parser (List a) -> Parser (List a)
-concatOptions p1 p2 = ?rhs_concatOptions
+concatOptions p1 p2 = App (map (\x => \y => x ++ y) p1) p2

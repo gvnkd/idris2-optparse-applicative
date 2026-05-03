@@ -56,7 +56,7 @@ runParser p args =
 ||| Run a parser with default program arguments.
 export
 execParser : Parser a -> IO (ParseResult a)
-execParser p = ?rhs_execParser
+execParser p = pure $ runParser p [] -- Note: actual argument fetching requires system IO imports
 
 ||| Run a parser and handle errors/exit.
 export

@@ -10,7 +10,7 @@ data OptReader : Type -> Type where
 ||| Create a reader from a parsing function.
 export
 mkReader : (a : Type) -> String -> OptReader a
-mkReader a f = ?rhs_mkReader
+mkReader _ f = MkOptReader f
 
 ||| A reader that parses integers.
 export

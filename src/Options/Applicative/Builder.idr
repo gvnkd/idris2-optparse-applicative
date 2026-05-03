@@ -32,7 +32,7 @@ subparser commands = ?rhs_subparser
 ||| Helper to create a single named subcommand.
 export
 command : String -> Parser a -> (String, Parser a)
-command name p = ?rhs_command
+command name p = (name, p)
 
 ||| Convert a parser to a program with help flag.
 export

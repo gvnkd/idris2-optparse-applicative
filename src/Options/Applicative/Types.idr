@@ -39,7 +39,14 @@ data StepResult : Type -> Type where
 
 ||| Make Parser a Functor.
 Functor Parser where
-  map f p = ?rhs_map
+  map f p =
+    case p of
+      Flag names         => ?rhs_map_flag_case
+      Option nm mv       => ?rhs_map_opt_case
+      Argument mv        => ?rhs_map_arg_case
+      Pure x             => ?rhs_map_pure_case x
+      App pf pa          => ?rhs_map_app_case pf pa
+      Alt p1 p2          => ?rhs_map_alt_case p1 p2
 
 ||| Make Parser an Applicative.
 Applicative Parser where

@@ -28,6 +28,22 @@ A type-safe command-line option parser library for Idris2, built on a **free app
 
 Requires Idris2 v0.8.0 or later.
 
+**Using Nix (recommended):**
+
+```bash
+nix develop --command build   # Build the library and executable
+nix develop --command test    # Run the full test suite
+```
+
+Inside `nix develop` shell, commands are available directly:
+
+```bash
+build   # Build the library and executable
+test    # Run the full test suite
+```
+
+**Manual build:**
+
 ```bash
 idris2 --build optparse-applicative.ipkg
 ```
@@ -307,43 +323,51 @@ script = bashCompletionScript "myapp" myParser
 
 ## Testing
 
-The project includes a test module `TestParse.idr` with sanity checks:
+The project uses **Test.Golden** (from the Idris2 standard library) for regression testing. Each test is a shell script that invokes the parser with specific arguments and compares output against a golden `expected` file.
+
+### Running Tests
+
+```bash
+# Via Nix flake (recommended)
+nix develop --command test
+
+# Or inside nix develop shell
+test
+
+# Manual run
+cd tests && idris2 --build tests.ipkg
+./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
+```
+
+### Test Coverage
+
+| Test | Arguments | Validates |
+|------|-----------|-----------|
+| `no-args` | `[]` | Default values (verbose=False, output="stdout") |
+| `flag-only` | `["-v"]` | Flag parsing |
+| `option-value` | `["-o", "results.json"]` | Option with value |
+| `positionals` | `["file1.txt", "file2.txt"]` | Positional arguments |
+| `full-combo` | `["-v", "-o", "out.txt", "f1.txt", "f2.txt"]` | Flags + options + positionals |
+| `interleaved` | `["--output", "results.json", "-v", "src/Main.idr"]` | Mixed order parsing |
+
+### Updating Golden Files
+
+When parser behavior intentionally changes, update expected outputs interactively:
+
+```bash
+./build/test/exec/runtests $(realpath ../build/exec/optparse-test) --interactive
+```
+
+### TestParse.idr
+
+The project also includes `TestParse.idr` with programmatic sanity checks for REPL usage:
 
 ```idris
 export testEmpty : ParseResult ToolConfig
 testEmpty = runParserWith mainParser []
 
-export testVerboseOnly : ParseResult ToolConfig
-testVerboseOnly = runParserWith mainParser ["-v"]
-
-export testOptionValue : ParseResult ToolConfig
-testOptionValue = runParserWith mainParser ["--output", "results.json"]
-
-export testFilesOnly : ParseResult ToolConfig
-testFilesOnly = runParserWith mainParser ["src/Main.idr", "src/Types.idr"]
-
 export testFullCombo : ParseResult ToolConfig
 testFullCombo = runParserWith mainParser ["-v", "-o", "out.txt", "file1.txt", "file2.txt"]
-```
-
-Run the executable to verify:
-
-```bash  
-# Run the demo with various argument combinations:
-./build/exec/optparse-test                                  # No args (defaults)
-./build/exec/optparse-test -v                               # Flag only  
-./build/exec/optparse-test -o file.txt                     # Option with value
-./build/exec/optparse-test file1.txt file2.txt             # Positionals only
-./build/exec/optparse-test -v -o out.txt f1.txt f2.txt     # Full combo
-```
-
-**Expected output format:**
-```
-=== Parsed config ===  
-verbose    = True/False
-output     = "stdout"/"file.txt"
-inputFiles = [...]
-=====================
 ```
 
 ---

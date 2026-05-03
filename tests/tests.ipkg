@@ -1,0 +1,13 @@
+package optparse-applicative-test
+
+authors = "Rune"
+
+main = Main
+
+executable = runtests
+
+sourcedir = "."
+
+builddir = "build/test"
+
+depends = base, test, prelude

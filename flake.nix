@@ -56,6 +56,25 @@
           version = "0.1.0";
           inherit idrisLibraries;
         };
+
+        buildScript = pkgs.writeShellScriptBin "build" ''
+          set -e
+          echo "Building optparse-applicative..."
+          idris2 --build optparse-applicative.ipkg
+          echo "Build complete."
+        '';
+
+        testScript = pkgs.writeShellScriptBin "test" ''
+          set -e
+          echo "Building main library..."
+          idris2 --build optparse-applicative.ipkg
+          echo "Building test runner..."
+          cd tests
+          idris2 --build tests.ipkg
+          echo "Running tests..."
+          ./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
+          cd ..
+        '';
       in
       {
         packages = {
@@ -69,6 +88,8 @@
             idris2Packages.idris2Lsp
             python3
             gnused gnugrep gawk diffutils jq yq ripgrep
+            buildScript
+            testScript
           ];
           buildInputs = [
             idris2Wrapped

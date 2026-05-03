@@ -2,6 +2,7 @@
 module Options.Applicative.Run
 
 import Options.Applicative.Types
+import Options.Applicative.Error
 import Data.List
 
 ||| Helper: match a single argument against a parser.
@@ -82,5 +83,6 @@ customExecParser : Parser a -> IO a
 customExecParser p = do
   result <- execParser p
   case result of
-    Success val => pure val
-    _           => ?rhs_custom_exec_fail_result
+    Success val         => pure val
+    Failure err         => do putStrLn $ renderError err; ?rhs_io_stub_val
+    CompletionInvoked   => do putStrLn "Completion invoked"; ?rhs_completion_stub_val

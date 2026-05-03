@@ -38,7 +38,10 @@ consumeArgs p (arg :: rest) =
 
     reduceApp pf pa args = 
         case consumeArgs pa args of
-            StepSuccess _ x leftover => ?rhs_reduce_pf pf x leftover
+            StepSuccess _ x leftover => case consumeArgs pf leftover of
+                StepSuccess _ f leftover2   => StepSuccess (Pure (f x)) (f x) leftover2
+                StepFailure err              => StepFailure err
+                StepMore p'' rest        => ?rhs_app_final_recurse pf p'' rest
             StepFailure err          => StepFailure err
             StepMore p' rest         => ?rhs_app_more_pf pf p' rest
 

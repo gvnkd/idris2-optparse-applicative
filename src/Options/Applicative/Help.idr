@@ -5,10 +5,8 @@ import Options.Applicative.Types
 import Data.List
 import Data.String
 
-||| Generate usage line for a parser.
-export
-usage : Parser a -> String
-usage _p = "Usage: <program> [OPTIONS]"
+-- ||| Generate usage line for a parser. (Deferred to Phase 2 due to v0.8 unification bug)
+-- export usage : Parser a -> String
 
 ||| Generate full help text for a parser.
 export

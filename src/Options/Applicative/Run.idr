@@ -50,7 +50,13 @@ consumeArgs p (arg :: rest) =
                         StepMore p'''' rest3    => ?rhs_app_pf_partial_recurse pf p'''' rest3
             StepFailure err          => StepFailure err
             StepMore p' rest         => case consumeArgs p' rest of
-                StepSuccess _ x2 leftover2   => ?rhs_app_second_part pf p' x2 leftover2
+                StepSuccess _ x2 leftover2   => case consumeArgs pf leftover2 of
+                    StepSuccess _ f leftover3    => StepSuccess (Pure (f x2)) (f x2) leftover3
+                    StepFailure err              => StepFailure err
+                    StepMore p'' rest4      => case consumeArgs p'' rest4 of
+                        StepSuccess _ f leftover5    => StepSuccess (Pure (f x2)) (f x2) leftover5
+                        StepFailure err              => StepFailure err
+                        StepMore p''' rest6      => ?rhs_app_partial_pf_recurse pf p''' rest6
                 StepFailure err              => StepFailure err
                 StepMore p'' rest2      => reduceApp pf p'' (rest2 ++ rest)
 

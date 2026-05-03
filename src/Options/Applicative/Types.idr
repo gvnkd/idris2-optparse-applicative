@@ -57,7 +57,7 @@ Applicative Parser where
 
 ||| Make Parser an Alternative.
 Alternative Parser where
-  empty = ?rhs_empty_impl
+  empty = Fail
   p1 <|> p2 = Alt p1 (force p2)
 
 

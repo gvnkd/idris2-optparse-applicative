@@ -91,17 +91,15 @@ runParser p args =
         StepFailure err              => Failure err
         StepMore updatedTree rest    => runParser updatedTree rest
 
-||| Run a parser with default program arguments.
+||| Run a parser with explicit argument list (primary interface).
+-- ||| Note: System.getArgs requires FFI imports unavailable in base Idris 2.
+-- |||     Usage: runParser myParser args from Main or via execParserWith.
+export
+runParserWith : Parser a -> List String -> ParseResult a
+runParserWith p = runParser p
+
+||| Stub: Run with empty args (deferred system integration to post-beta).
+-- TODO(beta2): integrate System.Environment.getArgs when available.
 export
 execParser : Parser a -> IO (ParseResult a)
-execParser p = pure $ runParser p [] -- Note: actual argument fetching requires system IO imports
-
-||| Run a parser and handle errors/exit.
-export
-customExecParser : Parser a -> IO a
-customExecParser p = do
-  result <- execParser p
-  case result of
-    Success val         => pure val
-    Failure err         => do putStrLn $ renderError err; ?rhs_io_stub_val
-    CompletionInvoked   => do putStrLn "Completion invoked"; ?rhs_completion_stub_val
+execParser p = pure $ runParserWith p []

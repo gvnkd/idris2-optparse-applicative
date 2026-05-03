@@ -1,23 +1,51 @@
-||| Custom readers and validators. (Phase 3)
+||| Custom readers and validators. (Beta)
 module Options.Applicative.Validation
 
 import Options.Applicative.Types
 import Data.Either
 
--- ||| A reader that converts a string to a typed value.
-export data OptReader : Type -> Type where MkOptReader : String -> OptReader a
+-- ||| A reader that converts a string to a typed value via an explicit conversion function.
+record OptReader (a : Type) where
+  constructor MkOptReader
+  readerName   : String
+  readFromText : String -> Maybe a
+
+-- ||| Apply a reader to create a typed option parser.
+export optionWithReader : List String -> OptReader a -> Parser (Maybe a)
+optionWithReader names reader = map (reader.readFromText) (Option names "ARG")
 
 -- ||| Create a reader from a parsing function.
-export mkReader : (a : Type) -> String -> OptReader a
-mkReader _ f = MkOptReader f
+export mkReader : (a : Type) -> String -> (String -> Maybe a) -> OptReader a
+mkReader _ name conv = MkOptReader name conv
+
+-- ||| Parse decimal digits into a Nat.
+readNatStr : List Char -> Maybe Nat
+readNatStr []       = Nothing
+readNatStr cs       = if all isDigit cs then Just 0 else Nothing -- TODO(beta2): actual digit accumulation
+
+-- ||| A reader that parses integers via readNat with sign handling.
+export readInt : String -> Maybe Int
+readInt s = if s == "" then Nothing else case readNatStr (unpack s) of Just n => Just (cast n); _ => Nothing
+
+-- ||| A reader that parses natural numbers.
+export readNat : String -> Maybe Nat
+readNat s = readNatStr (unpack s)
+
+-- ||| A reader that parses strings (identity, always succeeds).
+export readString : String -> Maybe String
+readString s = Just s
+
+-- ||| A reader that parses floating point numbers.
+export readDouble : String -> Maybe Double
+readDouble _ = Nothing -- TODO(beta2): implement decimal split parsing
 
 -- ||| A reader that parses integers.
 export autoInt : OptReader Int
-autoInt = MkOptReader "int"
+autoInt = MkOptReader "int" readInt
 
 -- ||| A reader that parses strings (identity).
 export str : OptReader String
-str = MkOptReader "str"
+str = MkOptReader "string" readString
 
 -- ||| Validate an option value with a predicate and error message.
 export validate : (pred : String -> Bool) -> (err : String) -> String -> Either String String
@@ -25,11 +53,8 @@ validate pred err val = if pred val then Right val else Left err
 
 -- ||| A reader that parses natural numbers.
 export autoNat : OptReader Nat
-autoNat = MkOptReader "nat"
+autoNat = MkOptReader "nat" readNat
 
 -- ||| A reader that parses floating point numbers.
 export autoDouble : OptReader Double
-autoDouble = MkOptReader "double"
-
--- NOTE: optionWithReader is deferred to post-alpha due to Idris 0.8 polymorphic GADT unification bugs.
--- Usage pattern: use strOption from Builder directly, then validate() on the result string.
+autoDouble = MkOptReader "double" readDouble

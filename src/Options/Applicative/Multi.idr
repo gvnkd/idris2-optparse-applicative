@@ -16,6 +16,16 @@ consApp pa pl = App (map (::) pa) pl
 export many : Parser a -> Parser (List a)
 many p = Alt (Pure []) (consApp p (many p))
 
+-- ||| Parse zero to n occurrences of the given parser.
+export manyUpTo : Nat -> Parser a -> Parser (List a)
+manyUpTo Z _     = Pure []
+manyUpTo (S k) p = Alt (Pure []) (consApp p (manyUpTo k p))
+
 -- ||| Parse one or more occurrences of the given parser.
 export some : Parser a -> Parser (List a)
 some p = consApp p (many p)
+
+-- ||| Parse one to n occurrences of the given parser.
+export someUpTo : Nat -> Parser a -> Parser (List a)
+someUpTo Z _     = Pure []
+someUpTo (S k) p = consApp p (manyUpTo k p)

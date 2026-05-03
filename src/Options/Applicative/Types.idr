@@ -43,7 +43,7 @@ Functor Parser where
     case p of
       Flag names         => App (Pure f) (Flag names)
       Option nm mv       => App (Pure f) (Option nm mv)
-      Argument mv        => ?rhs_map_arg_case
+      Argument mv        => App (Pure f) (Argument mv)
       Pure x             => Pure (f x)
       App pf pa          => ?rhs_map_app_case pf pa
       Alt p1 p2          => ?rhs_map_alt_case p1 p2

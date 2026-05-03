@@ -61,4 +61,8 @@ execParser p = pure $ runParser p [] -- Note: actual argument fetching requires 
 ||| Run a parser and handle errors/exit.
 export
 customExecParser : Parser a -> IO a
-customExecParser p = ?rhs_customExecParser
+customExecParser p = do
+  result <- execParser p
+  case result of
+    Success val => pure val
+    _           => ?rhs_custom_exec_fail_result

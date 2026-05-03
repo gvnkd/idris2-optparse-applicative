@@ -25,7 +25,7 @@ matchArg p arg =
     case p of
       Flag names         => ?rhs_match_flag
       Option nm mv       => ?rhs_match_option nm mv
-      Argument mv        => ?rhs_match_argument mv
+      Argument _         => StepSuccess arg []
       Pure x             => ?rhs_match_pure x
       App pf pa          => ?rhs_match_app pf pa
       Alt p1 p2          => ?rhs_match_alt p1 p2

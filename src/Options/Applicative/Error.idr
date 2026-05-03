@@ -21,7 +21,7 @@ missingOptionError opt = "Missing required option: " ++ opt
 ||| Format an invalid option error.
 export
 invalidOptionError : String -> String -> String
-invalidOptionError opt val = ?rhs_invalidOptionError
+invalidOptionError opt val = "Invalid value for option " ++ opt ++ ": " ++ val
 
 ||| Format an unexpected argument error.
 export

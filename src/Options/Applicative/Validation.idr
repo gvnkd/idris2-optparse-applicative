@@ -31,8 +31,8 @@ optionWithReader :
   -> Parser a
 optionWithReader names _reader = ?rhs_optionWithReader_impl
 
-||| Add validation to a parser. (Deferred to Phase 2 due to type inference bug)
+-- ||| Add validation to a parser. (Deferred to Phase 2 due to type inference bug)
 -- export validate : (a -> Maybe String) -> Parser a -> Parser a
 
-||| Create a validator from a predicate. (Deferred due to v0.8 unification bug with exported polymorphic lambdas)
+-- ||| Create a validator from a predicate. (Deferred due to v0.8 unification bug with exported polymorphic lambdas)
 -- export checkValidator : (a -> Bool) -> String -> (a -> Maybe String)

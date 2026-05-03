@@ -16,7 +16,7 @@ renderError err =
 ||| Format a missing option error.
 export
 missingOptionError : String -> String
-missingOptionError opt = ?rhs_missingOptionError
+missingOptionError opt = "Missing required option: " ++ opt
 
 ||| Format an invalid option error.
 export

@@ -1,10 +1,17 @@
--- ||| Subcommand support for CLI parsers. (Deferred to Phase 3 polish, core Alt logic is already in Builder.idr)
+||| Subcommand support for CLI parsers.
 module Options.Applicative.Subparser
 
 import Options.Applicative.Types
+import Data.List
 
--- public export record SubparserConfig a where ...
--- export commands : List (String, Parser a) -> SubparserConfig a
--- export progDesc : String -> SubparserConfig a -> SubparserConfig a
--- export mkSubparser : SubparserConfig a -> Parser a
--- export lookupCommand : String -> SubparserConfig a -> Maybe (Parser a)
+||| A map of command names to their parsers.
+public export
+record SubparserConfig a where
+  constructor MkSubparserConfig
+  commands : List (String, Parser a)
+  progDesc : Maybe String
+
+||| Create a subparser configuration.
+export
+mkConfig : List (String, Parser a) -> SubparserConfig a
+mkConfig cmds = MkSubparserConfig cmds Nothing

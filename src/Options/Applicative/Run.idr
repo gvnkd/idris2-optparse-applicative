@@ -41,7 +41,10 @@ consumeArgs p (arg :: rest) =
             StepSuccess _ x leftover => case consumeArgs pf leftover of
                 StepSuccess _ f leftover2   => StepSuccess (Pure (f x)) (f x) leftover2
                 StepFailure err              => StepFailure err
-                StepMore p'' rest        => ?rhs_app_final_recurse pf p'' rest
+                StepMore p'' rest        => case consumeArgs p'' rest of
+                    StepSuccess _ f leftover2   => StepSuccess (Pure (f x)) (f x) leftover2
+                    StepFailure err                 => StepFailure err
+                    StepMore p''' rest2      => ?rhs_app_pf_partial_recurse pf p''' rest2
             StepFailure err          => StepFailure err
             StepMore p' rest         => ?rhs_app_more_pf pf p' rest
 

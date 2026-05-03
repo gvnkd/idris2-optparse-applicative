@@ -15,6 +15,7 @@ data Parser : Type -> Type where
   Pure      : a -> Parser a
   App       : Parser (a -> b) -> Parser a -> Parser b
   Alt       : Parser a -> Parser a -> Parser a
+  Fail      : Parser a
 
 ||| Errors that can occur during parsing.
 public export
@@ -47,6 +48,7 @@ Functor Parser where
       Pure x             => Pure (f x)
       App pf pa          => App (map (\gs, x => f (gs x)) pf) pa
       Alt p1 p2          => Alt (map f p1) (map f p2)
+      Fail               => ?rhs_map_fail
 
 ||| Make Parser an Applicative.
 Applicative Parser where

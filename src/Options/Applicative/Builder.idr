@@ -38,4 +38,4 @@ command name p = (name, p)
 ||| Convert a parser to a program with help flag.
 export
 info : Parser a -> String -> Parser a
-info p desc = ?rhs_info
+info p desc = p

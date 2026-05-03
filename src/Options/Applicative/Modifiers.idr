@@ -22,7 +22,7 @@ defaultMod = MkMod [] [] Nothing Nothing Nothing
 ||| Add a long option name (e.g., "--help").
 export
 long : String -> Mod -> Mod
-long name mod = ?rhs_long
+long name m@(MkMod l s h mv dv) = MkMod (name :: l) s h mv dv
 
 ||| Add a short option name (e.g., '-h').
 export

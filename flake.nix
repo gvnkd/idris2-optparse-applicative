@@ -64,6 +64,12 @@
         };
 
         devShells.default = pkgs.mkShell {
+          nativeBuildInputs = with pkgs; [
+            #python3.withPackages( p: [ ] )
+            idris2Packages.idris2Lsp
+            python3
+            gnused gnugrep gawk diffutils jq yq ripgrep
+          ];
           buildInputs = [
             idris2Wrapped
             pkgs.rlwrap
@@ -84,28 +90,6 @@
               ln -s "${combinedDocs}/share/doc" ./docs
             fi
 
-            echo "optparse-applicative - Idris2 CLI parser library"
-            echo ""
-            echo "Build:"
-            echo "  idris2 --build optparse-applicative.ipkg"
-            echo "  ./build/exec/optparse-applicative"
-            echo ""
-            echo "Add dependencies:"
-            echo "  1. Edit flake.nix, add to idrisLibraries and idris2Wrapped"
-            echo "  2. Edit optparse-applicative.ipkg, add to depends:"
-            echo "  3. Run: nix develop"
-            echo ""
-            echo "Generate docs:"
-            echo "  idris2-mkdoc-md -o ./my-docs optparse-applicative.ipkg"
-            echo ""
-            echo "Browse dependency docs:"
-            echo "  doc list                     # list available package docs"
-            echo "  doc show json                # view json package index"
-            echo "  doc show json Data.List      # view specific module docs"
-            echo "  ls ./docs/                   # or browse the ./docs/ symlink"
-            echo ""
-            echo "REPL with packages:"
-            echo "  rlwrap idris2"
           '';
         };
       }

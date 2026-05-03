@@ -2,3 +2,5 @@ build/
 *.ttc
 *.ttm
 .opencode/
+.direnv/
+scripts/

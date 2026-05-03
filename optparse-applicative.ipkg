@@ -19,3 +19,6 @@ modules =
 
 
 sourcedir = "src"
+
+main = Main
+executable = "optparse-test"

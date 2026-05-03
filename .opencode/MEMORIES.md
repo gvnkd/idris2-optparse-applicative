@@ -134,3 +134,17 @@ Holes inside instance bodies (`Functor where ...`) are **NOT** visible to REPL. 
 - **Never combine steps** — the 8-step workflow prevents cascading type errors that take hours to debug
 - **`mutual` blocks work reliably** in Idris 0.8; prefer them over forward references when possible
 - **GADT phantom types + public export = unification hell**; always test with `export` first before promoting to `public export`
+
+## Beta2 Bug Fixes (2026-05-03)
+
+### Critical Bugs Fixed
+1. **reduceApp order** - process pf before pa to prevent argument starvation in Applicative composition  
+2. **tryLeftOrRight Alt backtracking** - handle StepMore from matchArg instead of propagating blindly  
+3. **Option two-arg consumption** - return StepMore for Options to force consumption through consumeArgs  
+4. **manyUpTo branch ordering** - swap branches so matching is tried before empty fallback  
+5. **Unbounded many/some removal** - eliminated infinite AST expansion risk entirely
+
+### Architecture Changes
+- All interdependent helpers (reduceApp/tryLeftOrRight/goReduction) now in top-level mutual block
+- Mutual block must include all functions with circular dependencies; order matters within block
+- Idris 0.8 processes where clauses sequentially; nested definitions cause forward reference errors

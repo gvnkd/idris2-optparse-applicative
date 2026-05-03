@@ -2,6 +2,7 @@
 module Options.Applicative.Subparser
 
 import Options.Applicative.Types
+import Options.Applicative.Builder
 import Data.List
 
 ||| A map of command names to their parsers.
@@ -24,7 +25,7 @@ progDesc desc (MkSubparserConfig cmds _) = MkSubparserConfig cmds (Just desc)
 ||| Build a subparser from configuration.
 export
 mkSubparser : SubparserConfig a -> Parser a
-mkSubparser config = ?rhs_mkSubparser
+mkSubparser (MkSubparserConfig cmds _) = subparser cmds
 
 ||| Lookup a command by name.
 export

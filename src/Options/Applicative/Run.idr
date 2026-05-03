@@ -21,7 +21,15 @@ customExecParser p = ?rhs_customExecParser
 
 ||| Helper: match a single argument against a parser.
 matchArg : Parser a -> String -> StepResult a
-matchArg p arg = ?rhs_matchArg
+matchArg p arg =
+    case p of
+      Flag names         => ?rhs_match_flag
+      Option nm mv       => ?rhs_match_option nm mv
+      Argument mv        => ?rhs_match_argument mv
+      Pure x             => ?rhs_match_pure x
+      App pf pa          => ?rhs_match_app pf pa
+      Alt p1 p2          => ?rhs_match_alt p1 p2
+      Fail               => ?rhs_match_fail
 
 ||| Helper: consume remaining arguments.
 consumeArgs : Parser a -> List String -> StepResult a

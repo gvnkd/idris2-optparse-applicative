@@ -15,7 +15,7 @@ mkReader _ f = MkOptReader f
 ||| A reader that parses integers.
 export
 autoInt : OptReader Int
-autoInt = ?rhs_autoInt
+autoInt = MkOptReader "int"
 
 ||| A reader that parses strings (identity).
 export

@@ -27,7 +27,7 @@ matchArg p arg =
       Option nm _        => if arg `elem` nm then StepSuccess arg [] else StepFailure (UnexpectedError arg)
       Argument _         => StepSuccess arg []
       Pure x             => StepSuccess x []
-      App pf pa          => ?rhs_match_app pf pa
+      App pf pa          => StepMore (App pf pa) [arg]
       Alt p1 p2          => ?rhs_match_alt p1 p2
       Fail               => StepFailure (UnexpectedError arg)
 

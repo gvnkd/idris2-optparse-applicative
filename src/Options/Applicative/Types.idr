@@ -48,7 +48,7 @@ Functor Parser where
       Pure x             => Pure (f x)
       App pf pa          => App (map (\gs, x => f (gs x)) pf) pa
       Alt p1 p2          => Alt (map f p1) (map f p2)
-      Fail               => ?rhs_map_fail
+      Fail               => Fail
 
 ||| Make Parser an Applicative.
 Applicative Parser where

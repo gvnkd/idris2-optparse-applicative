@@ -37,7 +37,7 @@ help text m@(MkMod l s _ mv dv) = MkMod l s (Just text) mv dv
 ||| Set metavariable text for an option.
 export
 metavar : String -> Mod -> Mod
-metavar text mod = ?rhs_metavar
+metavar text m@(MkMod l s h _ dv) = MkMod l s h (Just text) dv
 
 ||| Set a default value for an option.
 export

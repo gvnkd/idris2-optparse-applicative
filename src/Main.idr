@@ -17,8 +17,8 @@ record ToolConfig where
 mainParser : Parser ToolConfig
 mainParser = pure MkToolConfig
           <*> flag' ["-v", "--verbose"]
-          <*> strOption ["-o", "--output"]
-          <*> many (argument "FILE")
+          <*> option ["-o", "--output"] "stdout"
+          <*> manyUpTo 64 (argument "FILE")
 
 -- ||| Test helper: parse an explicit argument list without touching system IO.
 testParse : List String -> ParseResult ToolConfig

@@ -2,6 +2,7 @@
 module Options.Applicative.Validation
 
 import Options.Applicative.Types
+import Data.Either
 
 -- ||| A reader that converts a string to a typed value.
 export data OptReader : Type -> Type where MkOptReader : String -> OptReader a
@@ -18,5 +19,17 @@ autoInt = MkOptReader "int"
 export str : OptReader String
 str = MkOptReader "str"
 
--- TODO: Implement optionWithReader and validate in Phase 3b to bypass v0.8 polymorphic unification bugs.
--- export optionWithReader : List String -> OptReader a -> Parser a
+-- ||| Validate an option value with a predicate and error message.
+export validate : (pred : String -> Bool) -> (err : String) -> String -> Either String String
+validate pred err val = if pred val then Right val else Left err
+
+-- ||| A reader that parses natural numbers.
+export autoNat : OptReader Nat
+autoNat = MkOptReader "nat"
+
+-- ||| A reader that parses floating point numbers.
+export autoDouble : OptReader Double
+autoDouble = MkOptReader "double"
+
+-- NOTE: optionWithReader is deferred to post-alpha due to Idris 0.8 polymorphic GADT unification bugs.
+-- Usage pattern: use strOption from Builder directly, then validate() on the result string.

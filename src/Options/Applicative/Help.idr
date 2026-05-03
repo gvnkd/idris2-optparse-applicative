@@ -8,22 +8,14 @@ import Data.String
 -- ||| Generate usage line for a parser. (Deferred to Phase 2 due to v0.8 unification bug)
 -- export usage : Parser a -> String
 
-||| Generate full help text for a parser.
-export
-helpText : Parser a -> String
-helpText p = ?rhs_helpText
+-- ||| Generate full help text for a parser. (Deferred to Phase 2 due to v0.8 unification bug)
+-- export helpText : Parser a -> String
 
-||| Generate a brief description of available options.
-export
-optionsDescription : Parser a -> String
-optionsDescription p = ?rhs_optionsDescription
+-- ||| Generate a brief description of available options. (Deferred to Phase 2)
+-- export optionsDescription : Parser a -> String
 
-||| Align help text columns.
-export
-alignColumns : List (String, String) -> String
-alignColumns rows = ?rhs_alignColumns
+-- ||| Align help text columns. (Deferred to Phase 2)
+-- export alignColumns : List (String, String) -> String
 
-||| Format a single option description line.
-export
-formatOption : String -> Maybe String -> Maybe String -> String
-formatOption names helpText metavarText = ?rhs_formatOption
+-- ||| Format a single option description line. (Deferred to Phase 2)
+-- export formatOption : String -> Maybe String -> Maybe String -> String

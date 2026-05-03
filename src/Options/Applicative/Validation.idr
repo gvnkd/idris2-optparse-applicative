@@ -20,7 +20,7 @@ autoInt = MkOptReader "int"
 ||| A reader that parses strings (identity).
 export
 str : OptReader String
-str = ?rhs_str
+str = MkOptReader "str"
 
 ||| Apply a reader to create a typed option parser.
 export

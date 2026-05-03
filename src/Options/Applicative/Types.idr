@@ -53,7 +53,7 @@ Functor Parser where
 ||| Make Parser an Applicative.
 Applicative Parser where
   pure = Pure
-  pf <*> pa = ?rhs_ap
+  pf <*> pa = App pf pa
 
 ||| Make Parser an Alternative.
 Alternative Parser where

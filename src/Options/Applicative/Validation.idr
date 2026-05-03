@@ -33,7 +33,7 @@ optionWithReader names reader = ?rhs_optionWithReader_impl
 ||| Add validation to a parser.
 export
 validate : (a -> Maybe String) -> Parser a -> Parser a
-validate f p = ?rhs_validate
+validate _f p = p -- Placeholder: actual validation requires Applicative tree rewriting in Phase 2
 
 ||| Create a validator from a predicate.
 export

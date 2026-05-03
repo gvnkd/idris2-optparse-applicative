@@ -34,31 +34,19 @@ consumeArgs p (arg :: rest) =
          Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
   where
-    reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
+    reducePf : Parser (x -> a) -> x -> List String -> StepResult a
+    reducePf pf' val args = 
+        case consumeArgs pf' args of
+            StepSuccess _ f leftover => StepSuccess (Pure (f val)) (f val) leftover
+            StepFailure err          => StepFailure err
+            StepMore p'' rest       => reducePf p'' val rest
 
+    reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
     reduceApp pf pa args = 
         case consumeArgs pa args of
-            StepSuccess _ x leftover => case consumeArgs pf leftover of
-                StepSuccess _ f leftover2   => StepSuccess (Pure (f x)) (f x) leftover2
-                StepFailure err              => StepFailure err
-                StepMore p'' rest        => case consumeArgs p'' rest of
-                    StepSuccess _ f leftover2   => StepSuccess (Pure (f x)) (f x) leftover2
-                    StepFailure err                 => StepFailure err
-                    StepMore p''' rest2      => case consumeArgs p''' rest2 of
-                        StepSuccess _ f leftover3   => StepSuccess (Pure (f x)) (f x) leftover3
-                        StepFailure err                => StepFailure err
-                        StepMore p'''' rest3    => ?rhs_app_pf_partial_recurse pf p'''' rest3
+            StepSuccess _ x leftover => reducePf pf x leftover
             StepFailure err          => StepFailure err
-            StepMore p' rest         => case consumeArgs p' rest of
-                StepSuccess _ x2 leftover2   => case consumeArgs pf leftover2 of
-                    StepSuccess _ f leftover3    => StepSuccess (Pure (f x2)) (f x2) leftover3
-                    StepFailure err              => StepFailure err
-                    StepMore p'' rest4      => case consumeArgs p'' rest4 of
-                        StepSuccess _ f leftover5    => StepSuccess (Pure (f x2)) (f x2) leftover5
-                        StepFailure err              => StepFailure err
-                        StepMore p''' rest6      => ?rhs_app_partial_pf_recurse pf p''' rest6
-                StepFailure err              => StepFailure err
-                StepMore p'' rest2      => reduceApp pf p'' (rest2 ++ rest)
+            StepMore p' rest        => reduceApp pf p' rest
 
     tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
 

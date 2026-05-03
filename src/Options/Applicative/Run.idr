@@ -55,8 +55,8 @@ consumeArgs p (arg :: rest) =
     tryLeftOrRight p1 p2 (arg :: rest) = 
           case matchArg p1 arg of
               StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
-              StepFailure _ => tryLeftOrRight Fail p2 (arg :: rest)
-              StepMore _ leftover => consumeArgs p1 (leftover ++ rest)
+              StepFailure _ => consumeArgs p2 (arg :: rest) -- Fix 1: Fallback immediately if left fails strictly
+              otherResult => otherResult -- Fix 2: If matchArg is stuck (StepMore), just pass it up to caller
 
     consumeApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
 

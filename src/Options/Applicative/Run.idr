@@ -60,4 +60,4 @@ consumeArgs p (arg :: rest) =
 
     consumeApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
 
-    consumeApp pf pa remainingArgs = ?rhs_consume_app pf pa remainingArgs
+    consumeApp pf pa = ?rhs_consume_app pf pa

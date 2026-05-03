@@ -17,7 +17,7 @@ record Mod where
 ||| Default modifier configuration.
 export
 defaultMod : Mod
-defaultMod = ?rhs_defaultMod
+defaultMod = MkMod [] [] Nothing Nothing Nothing
 
 ||| Add a long option name (e.g., "--help").
 export

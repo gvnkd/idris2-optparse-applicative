@@ -28,7 +28,7 @@ matchArg p arg =
       Argument _         => StepSuccess arg []
       Pure x             => StepSuccess x []
       App pf pa          => StepMore (App pf pa) [arg]
-      Alt p1 p2          => ?rhs_match_alt p1 p2
+      Alt p1 p2          => StepMore (Alt p1 p2) [arg]
       Fail               => StepFailure (UnexpectedError arg)
 
 ||| Helper: consume remaining arguments.

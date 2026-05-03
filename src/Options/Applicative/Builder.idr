@@ -27,10 +27,8 @@ option names defaultValue = Alt (Option names "ARG") (Pure defaultValue)
 ||| Create a subcommand parser from a list of named parsers.
 export
 subparser : List (String, Parser a) -> Parser a
-subparser commands =
-    case commands of
-      []        => ?rhs_subparser_empty
-      _ :: rest => ?rhs_subparser_nonempty rest
+subparser []            = ?rhs_subparser_empty_case
+subparser ((name, p) :: ps) = Alt p (subparser ps)
 
 ||| Helper to create a single named subcommand.
 export

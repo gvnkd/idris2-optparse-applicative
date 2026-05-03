@@ -45,8 +45,8 @@ Functor Parser where
       Option nm mv       => App (Pure f) (Option nm mv)
       Argument mv        => App (Pure f) (Argument mv)
       Pure x             => Pure (f x)
-      App pf pa          => ?rhs_map_app_case pf pa
-      Alt p1 p2          => ?rhs_map_alt_case p1 p2
+      App pf pa          => App (map (\gs, x => f (gs x)) pf) pa
+      Alt p1 p2          => Alt (map f p1) (map f p2)
 
 ||| Make Parser an Applicative.
 Applicative Parser where

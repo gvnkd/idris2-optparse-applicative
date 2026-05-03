@@ -28,7 +28,7 @@ optionWithReader :
      (names : List String)
   -> OptReader a
   -> Parser a
-optionWithReader names _reader = Option names "ARG" -- Placeholder: full reader dispatch pending Phase 2
+optionWithReader names reader = ?rhs_optionWithReader_impl
 
 ||| Add validation to a parser.
 export

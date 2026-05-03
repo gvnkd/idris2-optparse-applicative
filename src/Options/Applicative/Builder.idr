@@ -7,7 +7,7 @@ import Data.List
 ||| Create a string option parser with the given names.
 export
 strOption : (names : List String) -> Parser String
-strOption names = ?rhs_strOption
+strOption names = Option names ?rhs_strOption_metavar
 
 ||| Create a boolean flag parser with the given names.
 export

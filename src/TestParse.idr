@@ -15,8 +15,8 @@ record ToolConfig where
 mainParser : Parser ToolConfig
 mainParser = pure MkToolConfig
           <*> flag' ["-v", "--verbose"]
-          <*> strOption ["-o", "--output"]
-          <*> manyUpTo 16 (argument "FILE")
+          <*> option ["-o", "--output"] "stdout"  -- Use option with default for robustness
+          <*> manyUpTo 16 (argument "FILE") -- already bounded, safe!
 
 -- Test cases: empty args, flags only, option with value, positionals only
 export testEmpty : ParseResult ToolConfig

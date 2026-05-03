@@ -1,4 +1,4 @@
-||| Multi-value option support. (Stabilized for Phase 3)
+||| Multi-value option support. (Beta - bounded only)
 module Options.Applicative.Multi
 
 import Options.Applicative.Types
@@ -12,20 +12,16 @@ concatOptions p1 p2 = App (map (\x => \y => x ++ y) p1) p2
 consApp : Parser a -> Parser (List a) -> Parser (List a)
 consApp pa pl = App (map (::) pa) pl
 
--- ||| Parse zero or more occurrences of the given parser.
-export many : Parser a -> Parser (List a)
-many p = Alt (Pure []) (consApp p (many p))
-
 -- ||| Parse zero to n occurrences of the given parser.
+--     Fix Bug 2a: try matching first, fallback to empty list.
 export manyUpTo : Nat -> Parser a -> Parser (List a)
 manyUpTo Z _     = Pure []
-manyUpTo (S k) p = Alt (Pure []) (consApp p (manyUpTo k p))
-
--- ||| Parse one or more occurrences of the given parser.
-export some : Parser a -> Parser (List a)
-some p = consApp p (many p)
+manyUpTo (S k) p = Alt (consApp p (manyUpTo k p)) (Pure [])
 
 -- ||| Parse one to n occurrences of the given parser.
 export someUpTo : Nat -> Parser a -> Parser (List a)
 someUpTo Z _     = Pure []
 someUpTo (S k) p = consApp p (manyUpTo k p)
+
+-- NOTE: unbounded many/some removed due to infinite AST expansion at construction time.
+--       Use manyUpTo n / someUpTo n with explicit depth bounds instead.

@@ -6,10 +6,18 @@ import Options.Applicative.Error
 import System
 import Data.List
 
-mutual
+mutual  
   finalizeApp : Parser (x -> a) -> Parser x -> Maybe a
   finalizeParser : Parser a -> Maybe a
-  finalizeParser p =
+  
+  reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
+  goReduction : (x -> a) -> Parser x -> List String -> StepResult a
+  tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
+  
+  matchArg : Parser a -> String -> StepResult a
+  consumeArgs : Parser a -> List String -> StepResult a
+
+  finalizeParser p = 
     case p of
         Pure x             => Just x
         Flag names         => Just False -- Default to false if flag not seen
@@ -19,33 +27,56 @@ mutual
         App pf pa          => finalizeApp pf pa
         Alt p1 p2          => finalizeParser p1 <|> finalizeParser p2
 
-  finalizeApp pf pa =
+  finalizeApp pf pa = 
     case finalizeParser pf of
         Just f => case finalizeParser pa of
             Just x => Just (f x)
             _      => Nothing
         _      => Nothing
 
-||| Helper: match a single argument against a parser.
-matchArg : Parser a -> String -> StepResult a
-matchArg p arg =
+  -- Fix Bug 3: return StepMore for Options to force two-arg consumption through consumeArgs
+  matchArg p arg =
     case p of
       Flag names         => if arg `elem` names then StepSuccess (Pure True) True [] else StepFailure (UnexpectedError arg)
-      Option nm _        => if arg `elem` nm then StepSuccess (Pure arg) arg [] else StepFailure (UnexpectedError arg)
+      Option nm _        => if arg `elem` nm then StepMore p [arg] else StepFailure (UnexpectedError arg)
       Argument _         => StepSuccess (Pure arg) arg []
       Pure x             => StepSuccess (Pure x) x []
       App pf pa          => StepMore (App pf pa) [arg]
       Alt p1 p2          => StepMore (Alt p1 p2) [arg]
       Fail               => StepFailure (UnexpectedError arg)
 
-||| Helper: consume remaining arguments.
-consumeArgs : Parser a -> List String -> StepResult a
-consumeArgs p [] =
+  -- Fix Bug 1: process pf before pa to prevent argument starvation
+  reduceApp pf pa args = 
+    case consumeArgs pf args of
+        StepSuccess _ f leftover => goReduction f pa leftover
+        StepFailure err          => StepFailure err
+        StepMore p' rest        => reduceApp p' pa rest
+
+  -- Helper: apply function value to argument parser result  
+  goReduction f pa args = 
+    case consumeArgs pa args of
+        StepSuccess _ x leftover => StepSuccess (Pure (f x)) (f x) leftover
+        StepFailure err          => StepFailure err
+        StepMore p' rest        => goReduction f p' rest
+
+  -- Fix Bug 2b: handle StepMore from matchArg for Alt backtracking  
+  tryLeftOrRight _ _ []     = StepFailure (MissingOption "No arguments for alternative")
+  tryLeftOrRight p1 p2 (arg :: rest) = 
+    case matchArg p1 arg of
+        StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
+        StepFailure _ => consumeArgs p2 (arg :: rest)
+        StepMore p' leftover => 
+            case consumeArgs p' (leftover ++ rest) of
+                StepSuccess updatedTree val leftover2 => StepSuccess updatedTree val leftover2
+                StepFailure _ => consumeArgs p2 (arg :: rest)
+                StepMore _ _ => consumeArgs p2 (arg :: rest)
+
+  consumeArgs p [] = 
     case finalizeParser p of
         Just val  => StepSuccess (Pure val) val []
         Nothing   => StepFailure (MissingOption "Unsatisfied parser")
 
-consumeArgs p (arg :: rest) =
+  consumeArgs p (arg :: rest) =
     case p of
          Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
          Option nm _    => if arg `elem` nm
@@ -59,33 +90,10 @@ consumeArgs p (arg :: rest) =
          App pf pa      => reduceApp pf pa (arg :: rest)
          Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
-  where
-    reducePf : Parser (x -> a) -> x -> List String -> StepResult a
-    reducePf pf' val args =
-        case consumeArgs pf' args of
-            StepSuccess _ f leftover => StepSuccess (Pure (f val)) (f val) leftover
-            StepFailure err          => StepFailure err
-            StepMore p'' rest       => reducePf p'' val rest
-
-    reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
-    reduceApp pf pa args =
-        case consumeArgs pa args of
-            StepSuccess _ x leftover => reducePf pf x leftover
-            StepFailure err          => StepFailure err
-            StepMore p' rest        => reduceApp pf p' rest
-
-    tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
-    tryLeftOrRight _ _ []     = StepFailure (MissingOption "No arguments for alternative")
-    tryLeftOrRight p1 p2 (arg :: rest) =
-        case matchArg p1 arg of
-            StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
-            StepFailure _ => consumeArgs p2 (arg :: rest)
-            otherResult => otherResult
-
 ||| Run a parser against a list of command-line arguments.
 export
 runParser : Parser a -> List String -> ParseResult a
-runParser p args =
+runParser p args = 
     case consumeArgs p args of
         StepSuccess _ val []         => Success val
         StepSuccess _ val leftover   => Failure (UnexpectedError "Extra arguments provided")

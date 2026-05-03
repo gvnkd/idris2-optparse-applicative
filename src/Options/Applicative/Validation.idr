@@ -30,10 +30,8 @@ optionWithReader :
   -> Parser a
 optionWithReader names reader = ?rhs_optionWithReader_impl
 
-||| Add validation to a parser.
-export
-validate' : {a : Type} -> (a -> Maybe String) -> Parser a -> Parser a
-validate' _f _p = ?rhs_validate_impl
+||| Add validation to a parser. (Deferred to Phase 2 due to type inference bug)
+-- export validate : (a -> Maybe String) -> Parser a -> Parser a
 
 ||| Create a validator from a predicate.
 export

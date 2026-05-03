@@ -17,7 +17,7 @@ flag' names = Flag names
 ||| Create an argument parser with the given metavar.
 export
 argument : (metavar : String) -> Parser String
-argument metavar = ?rhs_argument
+argument metavar = Argument metavar
 
 ||| Create an option parser with a default value.
 export

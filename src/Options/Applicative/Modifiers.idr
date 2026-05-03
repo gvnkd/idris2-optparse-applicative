@@ -27,7 +27,7 @@ long name m@(MkMod l s h mv dv) = MkMod (name :: l) s h mv dv
 ||| Add a short option name (e.g., '-h').
 export
 short : String -> Mod -> Mod
-short name mod = ?rhs_short
+short name m@(MkMod l s h mv dv) = MkMod l (name :: s) h mv dv
 
 ||| Set help text for an option.
 export

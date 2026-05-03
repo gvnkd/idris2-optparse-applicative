@@ -24,7 +24,7 @@ matchArg : Parser a -> String -> StepResult a
 matchArg p arg =
     case p of
       Flag names         => if arg `elem` names then StepSuccess True [] else StepFailure (UnexpectedError arg)
-      Option nm mv       => ?rhs_match_option nm mv
+      Option nm _        => if arg `elem` nm then StepSuccess arg [] else StepFailure (UnexpectedError arg)
       Argument _         => StepSuccess arg []
       Pure x             => StepSuccess x []
       App pf pa          => ?rhs_match_app pf pa

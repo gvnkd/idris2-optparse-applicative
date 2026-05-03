@@ -49,7 +49,10 @@ consumeArgs p (arg :: rest) =
                         StepFailure err                => StepFailure err
                         StepMore p'''' rest3    => ?rhs_app_pf_partial_recurse pf p'''' rest3
             StepFailure err          => StepFailure err
-            StepMore p' rest         => ?rhs_app_more_pf pf p' rest
+            StepMore p' rest         => case consumeArgs p' rest of
+                StepSuccess _ x2 leftover2   => ?rhs_app_second_part pf p' x2 leftover2
+                StepFailure err              => StepFailure err
+                StepMore p'' rest2      => reduceApp pf p'' (rest2 ++ rest)
 
     tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
 

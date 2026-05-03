@@ -34,7 +34,7 @@ data ParseResult : Type -> Type where
 ||| The result of running a single parser step.
 public export
 data StepResult : Type -> Type where
-  StepSuccess : a -> List String -> StepResult a
+  StepSuccess : Parser a -> a -> List String -> StepResult a
   StepFailure : ParseError -> StepResult a
   StepMore    : Parser a -> List String -> StepResult a
 

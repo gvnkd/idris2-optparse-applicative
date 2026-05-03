@@ -23,10 +23,10 @@ customExecParser p = ?rhs_customExecParser
 matchArg : Parser a -> String -> StepResult a
 matchArg p arg =
     case p of
-      Flag names         => if arg `elem` names then StepSuccess True [] else StepFailure (UnexpectedError arg)
-      Option nm _        => if arg `elem` nm then StepSuccess arg [] else StepFailure (UnexpectedError arg)
-      Argument _         => StepSuccess arg []
-      Pure x             => StepSuccess x []
+      Flag names         => if arg `elem` names then StepSuccess (Pure True) True [] else StepFailure (UnexpectedError arg)
+      Option nm _        => if arg `elem` nm then StepSuccess (Pure arg) arg [] else StepFailure (UnexpectedError arg)
+      Argument _         => StepSuccess (Pure arg) arg []
+      Pure x             => StepSuccess (Pure x) x []
       App pf pa          => StepMore (App pf pa) [arg]
       Alt p1 p2          => StepMore (Alt p1 p2) [arg]
       Fail               => StepFailure (UnexpectedError arg)
@@ -37,6 +37,6 @@ consumeArgs _ [] = StepFailure (MissingOption "Expected argument")
 
 consumeArgs p (arg :: rest) =
     case matchArg p arg of
-        StepSuccess val leftover => ?rhs_consume_success p val leftover rest
+        StepSuccess updatedTree val leftover => ?rhs_consume_success_rec updatedTree (leftover ++ rest)
         StepFailure err         => StepFailure err
-        StepMore p' leftover    => ?rhs_consume_more p' leftover rest
+        StepMore p' leftover    => ?rhs_consume_more_rec p' (leftover ++ rest)

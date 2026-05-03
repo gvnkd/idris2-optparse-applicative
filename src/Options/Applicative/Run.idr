@@ -29,7 +29,7 @@ matchArg p arg =
       Pure x             => StepSuccess x []
       App pf pa          => ?rhs_match_app pf pa
       Alt p1 p2          => ?rhs_match_alt p1 p2
-      Fail               => ?rhs_match_fail
+      Fail               => StepFailure (UnexpectedError arg)
 
 ||| Helper: consume remaining arguments.
 consumeArgs : Parser a -> List String -> StepResult a

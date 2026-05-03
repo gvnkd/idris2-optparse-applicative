@@ -31,4 +31,4 @@ unexpectedError arg = "Unexpected argument: " ++ arg
 ||| Exit with an error message.
 export
 exitWithError : ParseError -> IO ()
-exitWithError err = ?rhs_exitWithError
+exitWithError err = putStrLn $ renderError err

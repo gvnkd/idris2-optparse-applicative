@@ -30,10 +30,18 @@ consumeArgs p (arg :: rest) =
          Argument _     => consumeArgs (Pure arg) rest
          Pure x         => StepSuccess (Pure x) x (arg :: rest)
          Fail           => StepFailure (UnexpectedError "Failed to parse")
-         App pf pa      => ?rhs_app_branch pf pa (arg :: rest)
+         App pf pa      => reduceApp pf pa (arg :: rest)
          Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
   where
+    reduceApp : Parser (x -> a) -> Parser x -> List String -> StepResult a
+
+    reduceApp pf pa args = 
+        case consumeArgs pa args of
+            StepSuccess _ x leftover => ?rhs_reduce_pf pf x leftover
+            StepFailure err          => StepFailure err
+            StepMore p' rest         => ?rhs_app_more_pf pf p' rest
+
     tryLeftOrRight : Parser a -> Parser a -> List String -> StepResult a
 
     tryLeftOrRight _ _ []     = StepFailure (MissingOption "No arguments for alternative")

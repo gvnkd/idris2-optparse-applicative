@@ -32,7 +32,7 @@ short name m@(MkMod l s h mv dv) = MkMod l (name :: s) h mv dv
 ||| Set help text for an option.
 export
 help : String -> Mod -> Mod
-help text mod = ?rhs_help
+help text m@(MkMod l s _ mv dv) = MkMod l s (Just text) mv dv
 
 ||| Set metavariable text for an option.
 export

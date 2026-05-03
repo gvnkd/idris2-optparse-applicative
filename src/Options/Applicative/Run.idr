@@ -37,6 +37,6 @@ consumeArgs _ [] = StepFailure (MissingOption "Expected argument")
 
 consumeArgs p (arg :: rest) =
     case matchArg p arg of
-        StepSuccess updatedTree val leftover => ?rhs_consume_success_rec updatedTree (leftover ++ rest)
+        StepSuccess updatedTree val leftover => consumeArgs updatedTree (leftover ++ rest)
         StepFailure err         => StepFailure err
-        StepMore p' leftover    => ?rhs_consume_more_rec p' (leftover ++ rest)
+        StepMore p' leftover    => consumeArgs p' (leftover ++ rest)

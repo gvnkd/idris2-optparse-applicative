@@ -26,7 +26,11 @@ consumeArgs p [] =
 consumeArgs p (arg :: rest) =
     case p of
          Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
-         Option nm _    => if arg `elem` nm then consumeArgs (Pure arg) rest else consumeArgs p rest
+         Option nm _    => if arg `elem` nm
+                then case rest of
+                    (val :: rest') => consumeArgs (Pure val) rest'
+                    []             => StepFailure (MissingOption "Option value required")
+                else consumeArgs p rest
          Argument _     => consumeArgs (Pure arg) rest
          Pure x         => StepSuccess (Pure x) x (arg :: rest)
          Fail           => StepFailure (UnexpectedError "Failed to parse")

@@ -33,4 +33,10 @@ matchArg p arg =
 
 ||| Helper: consume remaining arguments.
 consumeArgs : Parser a -> List String -> StepResult a
-consumeArgs p args = ?rhs_consumeArgs
+consumeArgs _ [] = StepFailure (MissingOption "Expected argument")
+
+consumeArgs p (arg :: rest) =
+    case matchArg p arg of
+        StepSuccess val leftover => ?rhs_consume_success p val leftover rest
+        StepFailure err         => StepFailure err
+        StepMore p' leftover    => ?rhs_consume_more p' leftover rest

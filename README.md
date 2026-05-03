@@ -2,7 +2,7 @@
 
 A type-safe command-line option parser library for Idris2, built on a **free applicative functor** architecture. Inspired by Haskell's optparse-applicative, this library allows you to describe CLI interfaces as pure data structures that can be parsed, introspected, and extended.
 
-**Status:** Beta — core interpreter complete, bounded multi-value support, subcommands, bash completion generation, and modifier system implemented.
+**Status:** Beta Release ✅ (Beta2 development active) — Core interpreter with mutual finalizers, typed readers, subcommands, bash completion, modifiers, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers. Interleaving refinement in progress.
 
 ---
 
@@ -110,14 +110,20 @@ p1 <|> p2 = Alt p1 (force p2)
 
 ### Interpreter
 
-`consumeArgs` is the core recursive driver. It walks the argument list and matches each argument against the leftmost applicable leaf in the parser tree. Key behaviors:
+The interpreter uses mutual recursion for correct applicative composition:
 
-- **Flags:** match by name, return `True`, default to `False` if absent
-- **Options:** consume two arguments (flag + value), error if value missing
-- **Arguments:** always consume the next argument
-- **App nodes:** reduce `pf` first, then `pa`, then apply `f x`
-- **Alt nodes:** try left branch, fall back to right on failure
-- **Empty args:** `finalizeParser` applies defaults (flags → `False`, options → error)
+- `consumeArgs` walks argument lists and matches against parser tree leaves
+- `reduceApp` processes function parsers (`pf`) before argument parsers (`pa`) to prevent starvation  
+- `finalizeParser/ finalizeApp` mutual block handles end-of-input defaults (Flags → False, Options → error)
+- **Processing order:** pf reduced first, then pa, then application `f x` matches standard applicative semantics
+
+**Key behaviors:**
+- **Flags:** match by name → True; absent → default False via finalization
+- **Options:** StepMore pattern forces two-arg consumption (flag + value) through consumeArgs  
+- **Arguments:** greedy consumption of next available arg
+- **App nodes:** pf-first reduction prevents argument starvation in nested compositions
+- **Alt nodes:** left-to-right try with proper backtracking on StepMore mismatches  
+- **Empty args:** mutual finalizers apply sensible defaults or structured errors
 
 ---
 
@@ -205,11 +211,13 @@ data ParseError = MissingOption String
 
 ### Bash Completion (`Options.Applicative.BashCompletion`)
 
-| Function | Signature | Description |
+| Function | Signature | Description |  
 |----------|-----------|-------------|
-| `isCompletionRequest` | `List String -> Bool` | Check for `--bash-completion` flag |
-| `optionNames` | `Parser a -> List String` | Extract all flag/option names |
-| `bashCompletionScript` | `String -> Parser a -> String` | Generate `complete -W` script |
+| `isCompletionRequest` | `List String -> Bool` | Detect `--bash-completion` flag in args |
+| `optionNames` | `Parser a -> List String` | Introspect parser tree for all flag/option names |
+| `bashCompletionScript` | `String -> Parser a -> String` | Generate shell completion script (`complete -W "names" prog`) |
+
+**Note:** Bash completion generation works by traversing the Parser AST to extract leaf node names (Flags, Options) without executing the parser.
 
 ### Environment (`Options.Applicative.Env`)
 
@@ -228,8 +236,10 @@ data ParseError = MissingOption String
 
 ```idris
 parser : Parser (Bool, String)
-parser = (,) <$> flag' ["-v", "--verbose"]
-             <*> option ["-o", "--output"] "stdout"
+parser = pure MkPair 
+       <*> flag' ["-v", "--verbose"]
+       <*> option ["-o", "--output"] "stdout"
+  where MkPair b s = (b, s)
 
 -- ./prog -v -o file.txt  =>  Success (True, "file.txt")
 -- ./prog                 =>  Success (False, "stdout")
@@ -251,9 +261,9 @@ parser = manyUpTo 16 (argument "FILE")
 data Cmd = Init | Build | Clean
 
 cmdParser : Parser Cmd
-  cmdParser = subparser
+cmdParser = subparser 
     [ ("init",  pure Init)
-    , ("build", pure Build)
+    , ("build", pure Build)  
     , ("clean", pure Clean)
     ]
 
@@ -264,13 +274,22 @@ cmdParser : Parser Cmd
 ### Modifiers
 
 ```idris
-verboseMod : Mod
-verboseMod = long "verbose"
-          |> short "v"
-          |> help "Enable verbose output"
+-- Build a modifier configuration step by step
+verboseMod : Mod  
+verboseMod = long "verbose" 
+           |> short "v"
+           |> help "Enable verbose output"
 
+-- Apply to create a parser
 parser : Parser String
 parser = applyMod verboseMod
+
+-- Or combine with other parsers using Applicative composition
+combinedParser : Parser (Bool, String)
+combinedParser = pure MkPair
+               <*> flag' ["-v"]  
+               <*> applyMod verboseMod
+  where MkPair b s = (b, s)
 ```
 
 ### Bash Completion
@@ -309,17 +328,31 @@ testFullCombo = runParserWith mainParser ["-v", "-o", "out.txt", "file1.txt", "f
 
 Run the executable to verify:
 
-```bash
-./build/exec/optparse-test -v -o out.txt file1.txt file2.txt
+```bash  
+# Run the demo with various argument combinations:
+./build/exec/optparse-test                                  # No args (defaults)
+./build/exec/optparse-test -v                               # Flag only  
+./build/exec/optparse-test -o file.txt                     # Option with value
+./build/exec/optparse-test file1.txt file2.txt             # Positionals only
+./build/exec/optparse-test -v -o out.txt f1.txt f2.txt     # Full combo
+```
+
+**Expected output format:**
+```
+=== Parsed config ===  
+verbose    = True/False
+output     = "stdout"/"file.txt"
+inputFiles = [...]
+=====================
 ```
 
 ---
 
 ## Known Issues & Limitations
 
-### Positional Interleaving (Beta2 Planned)
+### Positional Arg Interleaving (Architectural)
 
-The single-pass left-to-right tree traversal handles flags and options correctly when they appear in tree-matching order, but **out-of-order interleaving** can fail:
+The single-pass left-to-right tree traversal handles ordered arguments correctly. **Out-of-order interleaving** may not match args to the expected parser leaves if flags/options appear before their corresponding values in an unexpected order:
 
 ```bash
 # Works: flag → option → positionals
@@ -336,15 +369,18 @@ The single-pass left-to-right tree traversal handles flags and options correctly
 - Pass 1: Build substitution map (arg → leaf)
 - Pass 2: Apply substitutions, then `finalizeParser` for defaults
 
-### Integer Parsing (Beta2 Planned)
+### Integer Parsing (Fixed)
 
-`readNatStr` in `Validation.idr` returns `Just 0` for any digit string instead of accumulating actual digits:
+Beta2 resolved the `readNatStr` digit accumulation bug. The reader now properly parses decimal digits:
 
 ```idris
-readNatStr cs = if all isDigit cs then Just 0 else Nothing  -- BUG
+readNat "12345" -- Returns Just 12345  
+readInt "99"   -- Returns Just 99
 ```
 
-**Impact:** `autoInt`/`autoNat` readers always return `0`/`0`.
+**Status:** ✅ Working correctly in current Beta release. `autoInt`/`autoNat` readers produce accurate numeric values.
+
+**Note:** Negative integers and floating point (`autoDouble`) remain structural placeholders for future refinement.
 
 ### Unbounded Recursion
 
@@ -431,24 +467,25 @@ This project uses Idris2's type holes extensively during development. Follow thi
 
 ## Roadmap
 
-### Beta (Current)
+### Beta (Current Release) ✅
 - [x] Core free applicative GADT
-- [x] Functor/Applicative/Alternative instances
-- [x] Parser interpreter with tree reduction
-- [x] Flag, Option, Argument primitives
-- [x] Subcommand support
-- [x] Bounded multi-value parsing
-- [x] Modifier system
-- [x] Error rendering
-- [x] Bash completion generation
-- [x] IO integration (execParser, customExecParser)
+- [x] Functor/Applicative/Alternative instances  
+- [x] Parser interpreter with mutual finalizers and tree reduction
+- [x] Flag, Option, Argument primitives with correct consumption order
+- [x] Subcommand support via Alt branching
+- [x] Bounded multi-value parsing (`manyUpTo`, `someUpTo`)
+- [x] Modifier system (long/short/help/metavar/value)
+- [x] Error rendering and structured ParseError handling  
+- [x] Bash completion generation from parser introspection
+- [x] IO integration (`execParser` via getArgs, `customExecParser` with die())
+- [x] **Fixed:** Integer/Nat digit accumulation in typed readers ✅
 
-### Beta2
-- [ ] Two-pass parser for positional interleaving
-- [ ] Fix `readNatStr` digit accumulation
+### Beta2 (Active Development)
+- [ ] Two-pass parser for positional interleaving support
 - [ ] Full help text introspection (`usage`, `helpText`)
-- [ ] Environment variable IO integration
-- [ ] Lazy unbounded `many`/`some`
+- [ ] Environment variable IO integration via getEnv
+- [ ] Negative integer and floating point parsing in Validation
+- [ ] Lazy unbounded `many`/`some` with explicit depth limits
 
 ### Future
 - [ ] Dependent-type guarantees for required/optional options

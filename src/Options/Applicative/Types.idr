@@ -41,7 +41,7 @@ data StepResult : Type -> Type where
 Functor Parser where
   map f p =
     case p of
-      Flag names         => App (Pure f) ?rhs_map_flag_pa
+      Flag names         => App (Pure f) (Flag names)
       Option nm mv       => ?rhs_map_opt_case
       Argument mv        => ?rhs_map_arg_case
       Pure x             => Pure (f x)

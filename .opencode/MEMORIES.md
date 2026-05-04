@@ -292,7 +292,14 @@ isUserArg x = case unpack x of
 - **`collectBindings`/`applyBindings` mutual block required** to avoid forward reference errors in Idris 0.8
 - **Two-pass eliminates argument starvation:** flags/options no longer compete with positionals during tree traversal
 - **Interleaving fixed by design:** global scan decouples argument order from parser tree shape
-- **Golden tests validate correctness:** all 6 golden cases pass including `interleaved` and `flag-only`
+- **Golden tests validate correctness:** all 7 golden cases pass including `interleaved` and `flag-only`
+
+### Known Limitation: Subcommand Field Population (2026-05-04)
+**Symptom:** Per-subcommand options/flags (e.g., `-n/--dry-run` for clean, `--template` for init) do not populate in parsed config despite subcommand routing working correctly.
+
+**Root cause:** Pass 1 collects flags/options globally BEFORE Pass 2 dispatches positionals to matching Command branches. Nested flags under Command nodes aren't visible during global collection phase yet (they resolve structurally but values remain defaults since their names weren't registered at collection time).
+
+**Fix path:** Requires conditional flag registration post-dispatch or two-phase name discovery where subcmd leaves are temporarily hoisted for Pass 1 visibility, then pruned back after routing. Deferred until core routing stabilizes further.
 
 ### Architecture Changes
 - Added `ParseBindings` record to `Types.idr`: flags, options, positionals lists

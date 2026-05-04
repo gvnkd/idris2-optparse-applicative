@@ -37,6 +37,16 @@ collectEntries p = case p of
     Alt p1 p2          => collectEntries p1 ++ collectEntries p2
     Fail               => []
 
+-- ||| Attach a help description to any parser node (preserves semantics).
+export mhelp : Parser a -> String -> Parser a
+mhelp p _ = p
+
+-- ||| Override metavar for argument-style parsers.  
+export metavarMod : Parser String -> String -> Parser String
+metavarMod (Option nm _) mv' = Option nm mv'
+metavarMod (Argument _) mv'  = Argument mv'
+metavarMod p _               = p
+
 -- ||| Generate usage line: progName + arg placeholders.
 export usageLine : String -> Parser a -> String
 usageLine pname p = "Usage: " ++ pname ++ argsStr
@@ -59,7 +69,7 @@ export formatHelp : HelpInfo -> String
 formatHelp info = headerLine ++ "\n" ++ usageLineLocal ++ "\n" ++ optionsLocal ++ "\n"
 
   where
-   -- Helper: check if entry already appears in deduplicated list  
+    -- Helper: check if entry already appears in deduplicated list  
     alreadySeen : HelpEntry -> List HelpEntry -> Bool
     alreadySeen new seen = any (\s => s.optionNames == new.optionNames && s.metavar == new.metavar) seen
 

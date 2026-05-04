@@ -4,9 +4,10 @@ module Main
 import Options.Applicative.Types
 import Options.Applicative.Builder
 import Options.Applicative.Run
-import Options.Applicative.Multi
+import Options.Applicative.Multi  
 import Options.Applicative.Error
 import Options.Applicative.Help
+import Options.Applicative.Modifiers
 import System
 
 ||| Configuration data structure parsed from command line.
@@ -16,18 +17,18 @@ record ToolConfig where
   output     : String  
   inputFiles : List String
 
-||| Build the CLI parser tree using Applicative composition.
+||| Build the CLI parser tree using Applicative composition with modifiers.
 mainParser : Parser ToolConfig
 mainParser = pure MkToolConfig
-          <*> flag' ["-v", "--verbose"]
-          <*> option ["-o", "--output"] "stdout"
-          <*> manyUpTo 64 (argument "FILE")
+          <*> (flag' ["-v", "--verbose"] `mhelp` "Enable verbose mode")
+          <*> (option ["-o", "--output"] "stdout" `mhelp` "Specify output file")  
+          <*> manyUpTo 64 (argument "FILE" `metavarMod` "Input files to process")
 
 ||| Test helper: parse an explicit argument list without touching system IO.
 testParse : List String -> ParseResult ToolConfig
 testParse args = runParserWith mainParser args
 
-||| Print parsed configuration.
+||| Print parsed configuration to stdout.
 printConfig : ToolConfig -> IO ()
 printConfig cfg = do
   putStrLn "=== Parsed config ==="  
@@ -36,23 +37,21 @@ printConfig cfg = do
   putStrLn $ "inputFiles = " ++ show (inputFiles cfg)
   putStrLn "====================="
 
-||| Handle parser result by printing success/failure messages.
-processResult : ParseResult ToolConfig -> IO ()
-processResult (Success cfg) = printConfig cfg
-processResult (Failure err) = putStrLn $ "Error: " ++ renderError err  
-processResult CompletionInvoked = putStrLn "Completion invoked"
-
 ||| Filter out internal runtime arguments from raw CLI input.
 isUserArg : String -> Bool
 isUserArg s = case unpack s of
     '/' :: _ => False
-    '-' :: 'l' :: _ => False
-    '-' :: 'L' :: _ => False  
+    '-' :: 'l' :: _ => False  
+    '-' :: 'L' :: _ => False
     _ => True
 
-||| Build help info for main parser.
+||| Build help info for the main parser with rich description.
 appHelp : HelpInfo
-appHelp = MkHelpInfo { progName = "optparse-test", header = "Demo CLI parser", entries = collectEntries mainParser }
+appHelp = MkHelpInfo 
+  { progName   = "optparse-test"
+  , header     = "Demo CLI parser showcasing optparse-applicative features"  
+  , entries    = collectEntries mainParser
+  }
 
 ||| Parse args and dispatch result to appropriate handler.
 runProgram : List String -> IO ()
@@ -62,7 +61,7 @@ runProgram rawArgs = if isHelpFlag rawArgs then showHelp else parseAndPrint (fil
     isHelpFlag : List String -> Bool
     isHelpFlag args = elem "--help" args || elem "-h" args
 
-    showHelp : IO ()
+    showHelp : IO ()  
     showHelp = putStrLn (formatHelp appHelp)
 
     parseAndPrint : List String -> IO ()
@@ -73,14 +72,7 @@ runProgram rawArgs = if isHelpFlag rawArgs then showHelp else parseAndPrint (fil
         Failure err => putStrLn $ "Error: " ++ renderError err
         CompletionInvoked => putStrLn "Completion invoked"
 
-
 ||| Main entry point: parse CLI args and print config.
 main : IO ()
 main = getArgs >>= runProgram
-
-
-
-
-
-
 

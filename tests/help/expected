@@ -1,6 +1,6 @@
-optparse-test: Demo CLI parser
-Usage: optparse-test[FILE]
-<pos> <FILE>    
+optparse-test: Demo CLI parser showcasing optparse-applicative features
+Usage: optparse-test[Input files to process]
+<pos> <Input files to process>    
 -o --output <ARG>    
 -v --verbose    
 

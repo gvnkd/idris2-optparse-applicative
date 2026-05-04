@@ -32,6 +32,7 @@ collectEntries p = case p of
     Flag names _       => MkHelpEntry names "" Nothing :: []
     Option nm mv h     => MkHelpEntry nm mv h :: []
     Argument mv h      => MkHelpEntry ["<pos>"] mv h :: []
+    Command _ px       => collectEntries px
     Pure _             => []
     App pf pa          => collectEntries pf ++ collectEntries pa
     Alt p1 p2          => collectEntries p1 ++ collectEntries p2
@@ -42,6 +43,7 @@ export mhelp : Parser a -> String -> Parser a
 mhelp (Flag names _) h         = Flag names (Just h)
 mhelp (Option nm mv _) h       = Option nm mv (Just h)
 mhelp (Argument mv _) h        = Argument mv (Just h)
+mhelp (Command n px) h         = Command n (mhelp px h)
 mhelp (Pure x) _               = Pure x
 mhelp (App pf pa) h            = App (mhelp pf h) pa
 mhelp (Alt p1 p2) h            = Alt (mhelp p1 h) (mhelp p2 h)

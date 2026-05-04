@@ -25,7 +25,12 @@ progDesc desc (MkSubparserConfig cmds _) = MkSubparserConfig cmds (Just desc)
 ||| Build a subparser from configuration.
 export
 mkSubparser : SubparserConfig a -> Parser a
-mkSubparser (MkSubparserConfig cmds _) = subparser cmds
+mkSubparser (MkSubparserConfig cmds _) = cmdList cmds
+
+  where
+    cmdList : List (String, Parser a) -> Parser a
+    cmdList []          = Fail
+    cmdList ((n, p)::r) = Alt (Command n p) (cmdList r)
 
 ||| Lookup a command by name.
 export

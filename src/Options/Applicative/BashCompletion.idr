@@ -16,6 +16,7 @@ optionNames p =
         Flag names _       => names
         Option nm _ _      => nm
         Argument _ _       => []
+        Command _ px       => optionNames px
         Pure _             => []
         App pf pa          => optionNames pf ++ optionNames pa
         Alt p1 p2          => optionNames p1 ++ optionNames p2

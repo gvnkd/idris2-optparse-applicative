@@ -9,6 +9,6 @@ depends = optparse-applicative
 
 sourcedir = "src"
 
-main = CliMain
+main = Examples.CliMain
 executable = "optparse-test"
 

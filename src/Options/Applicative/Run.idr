@@ -16,6 +16,7 @@ mutual
         Fail               => Nothing
         Option _ _ _       => Nothing -- Required value missing
         Argument _ _       => Nothing -- Required argument missing
+        Command _ px       => finalizeParser px  -- transparent wrapper
         App pf pa          => finalizeApp pf pa
         Alt p1 p2          => finalizeParser p1 <|> finalizeParser p2
 
@@ -33,6 +34,7 @@ matchArg p arg =
       Flag names _       => if arg `elem` names then StepSuccess (Pure True) True [] else StepFailure (UnexpectedError arg)
       Option nm _ _      => if arg `elem` nm then StepSuccess (Pure arg) arg [] else StepFailure (UnexpectedError arg)
       Argument _ _       => StepSuccess (Pure arg) arg []
+      Command _ px       => matchArg px arg
       Pure x             => StepSuccess (Pure x) x []
       App pf pa          => StepMore (App pf pa) [arg]
       Alt p1 p2          => StepMore (Alt p1 p2) [arg]
@@ -54,6 +56,7 @@ consumeArgs p (arg :: rest) =
                      []             => StepFailure (MissingOption "Option value required")
                  else consumeArgs p rest
           Argument _ _   => consumeArgs (Pure arg) rest
+          Command _ px   => consumeArgs px (arg :: rest)
           Pure x         => StepSuccess (Pure x) x (arg :: rest)
           Fail           => StepFailure (UnexpectedError "Failed to parse")
           App pf pa      => reduceApp pf pa (arg :: rest)
@@ -93,29 +96,31 @@ runParser p args =
         StepMore updatedTree rest    => runParser updatedTree rest
 
 mutual
-  getAllFlagNames : Parser a -> List String
-  getAllFlagNames (Flag names _) = names
-  getAllFlagNames (Option _ _ _) = []
-  getAllFlagNames (Argument _ _) = []
-  getAllFlagNames (Pure _)     = []
-  getAllFlagNames (App f x)    = getAllFlagNames f ++ getAllFlagNames x
-  getAllFlagNames (Alt p1 p2)  = getAllFlagNames p1 ++ getAllFlagNames p2
-  getAllFlagNames Fail         = []
+   getAllFlagNames : Parser a -> List String
+   getAllFlagNames (Flag names _) = names
+   getAllFlagNames (Option _ _ _) = []
+   getAllFlagNames (Argument _ _) = []
+   getAllFlagNames (Command _ px) = getAllFlagNames px
+   getAllFlagNames (Pure _)     = []
+   getAllFlagNames (App f x)    = getAllFlagNames f ++ getAllFlagNames x
+   getAllFlagNames (Alt p1 p2)  = getAllFlagNames p1 ++ getAllFlagNames p2
+   getAllFlagNames Fail         = []
 
-  getAllOptionNames : Parser a -> List String
-  getAllOptionNames (Flag _ _)     = []
-  getAllOptionNames (Option nm _ _) = nm
-  getAllOptionNames (Argument _ _) = []
-  getAllOptionNames (Pure _)     = []
-  getAllOptionNames (App f x)    = getAllOptionNames f ++ getAllOptionNames x
-  getAllOptionNames (Alt p1 p2)  = getAllOptionNames p1 ++ getAllOptionNames p2
-  getAllOptionNames Fail         = []
+   getAllOptionNames : Parser a -> List String
+   getAllOptionNames (Flag _ _)     = []
+   getAllOptionNames (Option nm _ _) = nm
+   getAllOptionNames (Argument _ _) = []
+   getAllOptionNames (Command _ px) = getAllOptionNames px
+   getAllOptionNames (Pure _)     = []
+   getAllOptionNames (App f x)    = getAllOptionNames f ++ getAllOptionNames x
+   getAllOptionNames (Alt p1 p2)  = getAllOptionNames p1 ++ getAllOptionNames p2
+   getAllOptionNames Fail         = []
 
-  checkFlag : Parser a -> String -> Bool
-  checkFlag p arg = arg `elem` getAllFlagNames p
+   checkFlag : Parser a -> String -> Bool
+   checkFlag p arg = arg `elem` getAllFlagNames p
 
-  checkOpt : Parser a -> String -> Bool
-  checkOpt p arg = arg `elem` getAllOptionNames p
+   checkOpt : Parser a -> String -> Bool
+   checkOpt p arg = arg `elem` getAllOptionNames p
 
 ------------------------------------------------------------------------
 -- Two-Pass Parser Implementation (Phase 2)
@@ -138,9 +143,28 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
         case rest of
           val :: rest' => scanBnds (MkParseBindings fls (opts ++ [([arg], Just val)]) pos) rest'
           []           => CollectFailure (MissingOption "Option value required")
+      else if isFlagLike arg && not (checkFlag p arg) && not (checkOpt p arg) then
+        CollectFailure (UnexpectedError ("Unknown argument: " ++ arg))
+      else if isCmdName arg then
+        scanBnds (MkParseBindings fls opts (pos ++ [arg])) rest  -- command name passes through to positionals for Pass 2 routing
       else
         scanBnds (MkParseBindings fls opts (pos ++ [arg])) rest
 
+    where
+      getAllCommandNames : Parser a -> List String
+      getAllCommandNames (Command n _) = [n]
+      getAllCommandNames (Alt p1 p2)    = getAllCommandNames p1 ++ getAllCommandNames p2
+      getAllCommandNames _               = []
+
+      isCmdName : String -> Bool
+      isCmdName s = any (\n => n == s) (getAllCommandNames p)
+
+    where
+      isFlagLike : String -> Bool
+      isFlagLike s = case unpack s of
+        '-' :: '-' :: _ => True  -- double dash: --foo / --foo=bar
+        '-' :: _        => True  -- single dash: -v / -vvv
+        _               => False
 
 ||| Pass 2: Apply collected bindings back onto the parser tree.
 ||| Threads positional arguments through the tree left-to-right.
@@ -172,8 +196,23 @@ applyBindings p bnds = case goApp bnds.positionals of
             _                => Nothing
         go (Argument _ _)   pos =
           case pos of
-            (h :: t) => Just (h, t)
+            []      => Nothing
+            (s :: t) => if isCmdName s then Nothing else Just (s, t)
+
+          where
+            ||| Collect all Command names from parser tree.
+            getAllCommandNames : Parser a -> List String
+            getAllCommandNames (Command n _) = [n]
+            getAllCommandNames (Alt p1 p2)    = getAllCommandNames p1 ++ getAllCommandNames p2
+            getAllCommandNames _               = []
+
+            ||| Check if string matches any registered command name.
+            isCmdName : String -> Bool
+            isCmdName s = any (\n => n == s) (getAllCommandNames p)
+
+        go (Command n px)   pos = case pos of
             []       => Nothing
+            (s :: t) => if s == n then go px t else Nothing  -- match name, consume from positionals
         go (App pf px)    pos = do
           (f, pos1) <- go pf pos
           (x, pos2) <- go px pos1

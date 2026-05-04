@@ -2,7 +2,7 @@
 
 A type-safe command-line option parser library for Idris2, built on a **free applicative functor** architecture. Inspired by Haskell's optparse-applicative, this library allows you to describe CLI interfaces as pure data structures that can be parsed, introspected, and extended.
 
-**Status:** Beta Release ✅ (Beta2 development active) — Core interpreter with mutual finalizers, typed readers, subcommands, bash completion, modifiers, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers. Interleaving refinement in progress.
+**Status:** Beta Release ✅ (Beta2 complete) — Two-pass parser stabilizes positional interleaving. Core interpreter with mutual finalizers, typed readers, subcommands, bash completion, modifiers, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers.
 
 ---
 
@@ -374,24 +374,20 @@ testFullCombo = runParserWith mainParser ["-v", "-o", "out.txt", "file1.txt", "f
 
 ## Known Issues & Limitations
 
-### Positional Arg Interleaving (Architectural)
+### Positional Arg Interleaving (Fixed ✅)
 
-The single-pass left-to-right tree traversal handles ordered arguments correctly. **Out-of-order interleaving** may not match args to the expected parser leaves if flags/options appear before their corresponding values in an unexpected order:
+Beta2 introduced a two-pass parser that eliminates the single-pass limitation:
+- **Pass 1:** Global scan of all CLI args into flat binding state (flags/options/positionals)
+- **Pass 2:** Tree traversal applies bindings regardless of argument order
 
+All interleaving patterns now work correctly:
 ```bash
-# Works: flag → option → positionals
-./prog -v -o out.txt file1.txt
-
-# May fail: option before flag
-./prog -o out.txt -v file1.txt
-# (Flag leaf skips -o, option may consume incorrectly)
+./prog -v -o out.txt file1.txt          # ✅ flag → option → positional
+./prog -o out.txt -v file1.txt         # ✅ option before flag
+./prog file1.txt -v -o out.txt file2.txt  # ✅ positionals interspersed with flags
 ```
 
-**Workaround:** Place all flags first, then options, then positionals.
-
-**Fix:** Two-pass parser planned for Beta2:
-- Pass 1: Build substitution map (arg → leaf)
-- Pass 2: Apply substitutions, then `finalizeParser` for defaults
+Golden test `interleaved` validates mixed-order parsing.
 
 ### Integer Parsing (Fixed)
 
@@ -504,8 +500,8 @@ This project uses Idris2's type holes extensively during development. Follow thi
 - [x] IO integration (`execParser` via getArgs, `customExecParser` with die())
 - [x] **Fixed:** Integer/Nat digit accumulation in typed readers ✅
 
-### Beta2 (Active Development)
-- [ ] Two-pass parser for positional interleaving support
+### Beta2 (Complete ✅)
+- [x] Two-pass parser for positional interleaving support — resolves out-of-order flag/argument mixing
 - [ ] Full help text introspection (`usage`, `helpText`)
 - [ ] Environment variable IO integration via getEnv
 - [ ] Negative integer and floating point parsing in Validation

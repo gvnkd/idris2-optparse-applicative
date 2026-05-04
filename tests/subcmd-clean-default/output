@@ -1,0 +1,7 @@
+=== Parsed config ===
+verbose    = False
+output     = stdout
+inputFiles = []
+cmd        = clean
+  -n/--dry-run  = False
+=====================

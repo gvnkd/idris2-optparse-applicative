@@ -1,0 +1,21 @@
+optparse-test: Demo CLI parser showcasing optparse-applicative features
+Usage: optparse-test [[FILE]]
+
+Options:
+
+-v --verbose    Enable verbose mode
+-o --output <ARG>    Specify output file
+<pos> <FILE>    Input files to process
+
+Subcommands:
+  status:
+
+  clean:
+    -n --dry-run  --  Do not delete files
+
+  init:
+    --template <ARG>  --  Template to use
+
+  build:
+    -O --optimize  --  Enable optimization
+

@@ -1,0 +1,7 @@
+=== Parsed config ===
+verbose    = True
+output     = stdout
+inputFiles = ["file1.txt"]
+cmd        = build
+  --optimize   = True
+=====================

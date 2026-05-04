@@ -3,4 +3,5 @@ verbose    = True
 output     = results.json
 inputFiles = ["src/Main.idr"]
 cmd        = build
+  --optimize   = False
 =====================

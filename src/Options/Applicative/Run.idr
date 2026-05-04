@@ -101,7 +101,7 @@ mutual
    getAllFlagNames (Flag names _) = names
    getAllFlagNames (Option _ _ _) = []
    getAllFlagNames (Argument _ _) = []
-   getAllFlagNames (Command _ px) = getAllFlagNames px
+   getAllFlagNames (Command _ _)  = []
    getAllFlagNames (Pure _)     = []
    getAllFlagNames (App f x)    = getAllFlagNames f ++ getAllFlagNames x
    getAllFlagNames (Alt p1 p2)  = getAllFlagNames p1 ++ getAllFlagNames p2
@@ -111,7 +111,7 @@ mutual
    getAllOptionNames (Flag _ _)     = []
    getAllOptionNames (Option nm _ _) = nm
    getAllOptionNames (Argument _ _) = []
-   getAllOptionNames (Command _ px) = getAllOptionNames px
+   getAllOptionNames (Command _ _)  = []
    getAllOptionNames (Pure _)     = []
    getAllOptionNames (App f x)    = getAllOptionNames f ++ getAllOptionNames x
    getAllOptionNames (Alt p1 p2)  = getAllOptionNames p1 ++ getAllOptionNames p2
@@ -130,7 +130,7 @@ mutual
 ||| Pass 1: Scan args once, collect flag/option hits and positionals.
 export
 collectBindings : Parser a -> List String -> CollectResult
-collectBindings p args = scanBnds MkParseEmptyBinds args
+collectBindings p args = scanBnds False MkParseEmptyBinds args
   where
     MkParseEmptyBinds : ParseBindings
     MkParseEmptyBinds = MkParseBindings [] [] []
@@ -140,7 +140,7 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
     findFlagNames (Flag names _) arg = if arg `elem` names then Just names else Nothing
     findFlagNames (App f x) arg = case findFlagNames f arg of Just n => Just n; Nothing => findFlagNames x arg
     findFlagNames (Alt p1 p2) arg = case findFlagNames p1 arg of Just n => Just n; Nothing => findFlagNames p2 arg
-    findFlagNames (Command _ px) arg = findFlagNames px arg
+    findFlagNames (Command _ _) _    = Nothing
     findFlagNames _ _ = Nothing
 
     ||| Find actual option names from parser tree for a matched argument.
@@ -148,26 +148,28 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
     findOptionNames (Option nm _ _) arg = if arg `elem` nm then Just nm else Nothing
     findOptionNames (App f x) arg = case findOptionNames f arg of Just n => Just n; Nothing => findOptionNames x arg
     findOptionNames (Alt p1 p2) arg = case findOptionNames p1 arg of Just n => Just n; Nothing => findOptionNames p2 arg
-    findOptionNames (Command _ px) arg = findOptionNames px arg
+    findOptionNames (Command _ _) _    = Nothing
     findOptionNames _ _ = Nothing
 
-    scanBnds : ParseBindings -> List String -> CollectResult
-    scanBnds bnds []            = Collected bnds
-    scanBnds (MkParseBindings fls opts pos) (arg :: rest) =
-      if checkFlag p arg then
+    scanBnds : Bool -> ParseBindings -> List String -> CollectResult
+    scanBnds _ bnds []            = Collected bnds
+    scanBnds afterCmd (MkParseBindings fls opts pos) (arg :: rest) =
+      if afterCmd then
+        scanBnds True (MkParseBindings fls opts (pos ++ [arg])) rest
+      else if isCmdName arg then
+        scanBnds True (MkParseBindings fls opts (pos ++ [arg])) rest
+      else if checkFlag p arg then
         let names = fromMaybe [arg] (findFlagNames p arg)
-        in scanBnds (MkParseBindings ((names, True) :: fls) opts pos) rest
+        in scanBnds False (MkParseBindings ((names, True) :: fls) opts pos) rest
       else if checkOpt p arg then
         let names = fromMaybe [arg] (findOptionNames p arg)
         in case rest of
-          val :: rest' => scanBnds (MkParseBindings fls ((names, Just val) :: opts) pos) rest'
+          val :: rest' => scanBnds False (MkParseBindings fls ((names, Just val) :: opts) pos) rest'
           []           => CollectFailure (MissingOption "Option value required")
       else if isFlagLike arg && not (checkFlag p arg) && not (checkOpt p arg) then
         CollectFailure (UnexpectedError ("Unknown argument: " ++ arg))
-      else if isCmdName arg then
-        scanBnds (MkParseBindings fls opts (pos ++ [arg])) rest  -- command name passes through to positionals for Pass 2 routing
       else
-        scanBnds (MkParseBindings fls opts (pos ++ [arg])) rest
+        scanBnds False (MkParseBindings fls opts (pos ++ [arg])) rest
 
     where
       getAllCommandNames : Parser _ -> List String
@@ -188,39 +190,39 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
 
 ||| Pass 2: Apply collected bindings back onto the parser tree.
 ||| Threads positional arguments through the tree left-to-right.
-||| Falls back to finalizeParser for defaults when tree reduction fails.
+||| Propagates parse errors explicitly. Returns Nothing for soft failures
+||| (missing option/argument, command mismatch) so Alt backtracking works.
 export
 applyBindings : Parser a -> ParseBindings -> ParseResult a
 applyBindings p bnds = case goApp bnds.positionals of
-    Just (x, [])    => Success x
-    Just (x, rest)  => Failure (UnexpectedError ("Extra arguments provided: " ++ show rest))
-    Nothing         => case finalizeParser p of
-      Just x  => Success x
-      Nothing => Failure (MissingOption "Unsatisfied parser")
+    Just (Right (x, []))    => Success x
+    Just (Right (x, rest))  => Failure (UnexpectedError ("Extra arguments provided: " ++ show rest))
+    Just (Left err)         => Failure err
+    Nothing                 => Failure (MissingOption "Unsatisfied parser")
 
   where
     eqNames : List String -> List String -> Bool
     eqNames xs ys = any (`elem` ys) xs
 
-    goApp : List String -> Maybe (a, List String)
+    goApp : List String -> Maybe (Either ParseError (a, List String))
     goApp pos = go p pos
 
       where
-        go : Parser x -> List String -> Maybe (x, List String)
-        go (Pure x)       pos = Just (x, pos)
+        go : Parser x -> List String -> Maybe (Either ParseError (x, List String))
+        go (Pure x)       pos = Just (Right (x, pos))
         go Fail           pos = Nothing
         go (Flag names _)   pos =
           case find (\(ns, v) => eqNames ns names) bnds.flags of
-            Just (_, v) => Just (v, pos)
-            Nothing     => Just (False, pos)
+            Just (_, v) => Just (Right (v, pos))
+            Nothing     => Just (Right (False, pos))
         go (Option nm _ _)  pos =
           case find (\(ns, mv) => eqNames ns nm) bnds.options of
-            Just (_, Just v) => Just (v, pos)
+            Just (_, Just v) => Just (Right (v, pos))
             _                => Nothing
         go (Argument _ _)   pos =
           case pos of
-            []      => Nothing
-            (s :: t) => if isCmdName s then Nothing else Just (s, t)
+            []       => Nothing
+            (s :: t) => if isCmdName s then Nothing else Just (Right (s, t))
 
           where
             ||| Collect all Command names from parser tree.
@@ -235,18 +237,32 @@ applyBindings p bnds = case goApp bnds.positionals of
             isCmdName s = any (\n => n == s) (getAllCommandNames p)
 
         go (Command n px)   pos = case pos of
-            []       => case finalizeParser px of  -- no command given: default to inner parser
-              Just x  => Just (x, pos)
+            []       => case finalizeParser px of
+              Just x  => Just (Right (x, pos))
               Nothing => Nothing
-            (s :: t) => if s == n then go px t else Nothing  -- match name, consume from positionals
-        go (App pf px)    pos = do
-          (f, pos1) <- go pf pos
-          (x, pos2) <- go px pos1
-          pure (f x, pos2)
+            (s :: t) => case s == n of
+              True  =>
+                let subRes = case collectBindings px t of
+                      Collected bnds' => applyBindings px bnds'
+                      CollectFailure err => Failure err
+                 in case subRes of
+                      Success x       => Just (Right (x, []))
+                      Failure err     => Just (Left err)
+                      CompletionInvoked => Just (Left (UnexpectedError "Completion invoked"))
+              False => Nothing
+        go (App pf px)    pos =
+          case go pf pos of
+            Nothing => Nothing
+            Just (Left err) => Just (Left err)
+            Just (Right (f, pos1)) => case go px pos1 of
+              Nothing => Nothing
+              Just (Left err) => Just (Left err)
+              Just (Right (x, pos2)) => Just (Right (f x, pos2))
         go (Alt p1 p2)    pos =
           case go p1 pos of
-            Just (x, pos1) => Just (x, pos1)
-            Nothing        => go p2 pos
+            Just (Right r) => Just (Right r)
+            Just (Left err) => Just (Left err)
+            Nothing => go p2 pos
 
 ||| Filter out internal runtime arguments (paths, library refs).
 isUserArg : String -> Bool

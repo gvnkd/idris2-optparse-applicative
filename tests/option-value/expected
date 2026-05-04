@@ -3,4 +3,5 @@ verbose    = False
 output     = results.json
 inputFiles = []
 cmd        = build
+  --optimize   = False
 =====================

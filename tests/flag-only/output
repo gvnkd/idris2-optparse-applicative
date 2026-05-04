@@ -3,4 +3,5 @@ verbose    = True
 output     = stdout
 inputFiles = []
 cmd        = build
+  --optimize   = False
 =====================

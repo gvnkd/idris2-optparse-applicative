@@ -1,4 +1,4 @@
-optparse-test: Demo CLI parser showcasing optparse-applicative features
+optparse-test: Test fixture for optparse-applicative
 Usage: optparse-test [[FILE]]
 
 Options:

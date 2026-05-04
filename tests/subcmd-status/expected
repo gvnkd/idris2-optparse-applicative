@@ -1,0 +1,6 @@
+=== Parsed config ===
+verbose    = False
+output     = stdout
+inputFiles = []
+cmd        = status
+=====================

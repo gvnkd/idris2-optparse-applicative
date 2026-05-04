@@ -77,19 +77,23 @@
           set -e
           PROJROOT=$(pwd)
 
-          echo "Building main library..."
-          idris2 --build optparse-applicative.ipkg
-
-          echo "Installing library to registry..."
-          idris2 --install optparse-applicative.ipkg
-
-          echo "Building example executable..."
-          (cd example && idris2 --build optparse-applicative-example.ipkg)
-
-          echo "Building test runner..."
+          idris2 --build optparse-applicative.ipkg >/dev/null 2>&1
+          idris2 --install optparse-applicative.ipkg >/dev/null 2>&1
+          (cd tests/app && idris2 --build test-app.ipkg >/dev/null 2>&1)
           cd tests
-          idris2 --build tests.ipkg
-          echo "Running tests..."
+          idris2 --build tests.ipkg >/dev/null 2>&1
+          ./build/test/exec/runtests "$PROJROOT/tests/app/build/exec/optparse-test-fixture"
+        '';
+
+       runExampleTestsScript = pkgs.writeShellScriptBin "run-example-tests" ''
+          set -e
+          PROJROOT=$(pwd)
+
+          idris2 --build optparse-applicative.ipkg >/dev/null 2>&1
+          idris2 --install optparse-applicative.ipkg >/dev/null 2>&1
+          (cd example && idris2 --build optparse-applicative-example.ipkg >/dev/null 2>&1)
+          cd example/tests
+          idris2 --build tests.ipkg >/dev/null 2>&1
           ./build/test/exec/runtests "$PROJROOT/example/build/exec/optparse-test"
         '';
       in
@@ -108,6 +112,7 @@
             gnused gnugrep gawk diffutils jq yq ripgrep
             buildScript
             runTestsScript
+            runExampleTestsScript
             tree
           ];
           buildInputs = [

@@ -1,0 +1,12 @@
+package optparse-applicative-test-app
+
+authors = "Rune"
+
+modules = TestMain
+
+depends = optparse-applicative
+
+sourcedir = "src"
+
+main = TestMain
+executable = "optparse-test-fixture"

@@ -1,6 +1,6 @@
 === Parsed config ===
 verbose    = True
-output     = stdout
-inputFiles = []
+output     = results.json
+inputFiles = ["#!/bin/sh", "src/Main.idr"]
 cmd        = build
 =====================

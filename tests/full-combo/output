@@ -2,4 +2,5 @@
 verbose    = True
 output     = out.txt
 inputFiles = ["file1.txt", "file2.txt"]
+cmd        = build
 =====================

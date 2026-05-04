@@ -2,4 +2,5 @@
 verbose    = False
 output     = stdout
 inputFiles = ["file1.txt", "file2.txt"]
+cmd        = build
 =====================

@@ -1,6 +1,6 @@
 === Parsed config ===
-verbose    = True
+verbose    = False
 output     = stdout
-inputFiles = []
+inputFiles = ["#!/bin/sh"]
 cmd        = build
 =====================

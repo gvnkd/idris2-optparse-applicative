@@ -84,7 +84,7 @@
           idris2 --install optparse-applicative.ipkg
 
           echo "Building example executable..."
-          idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
+          (cd example && idris2 -p optparse-applicative --build optparse-applicative-example.ipkg)
 
           echo "Building test runner..."
           cd tests

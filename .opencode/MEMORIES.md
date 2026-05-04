@@ -318,7 +318,40 @@ Help golden test output now shows descriptions for each option:
 ```
 <pos> <FILE>    Input files to process
 -o --output <ARG>    Specify output file
--v --verbose     
+-v --verbose
+```
+
+## Command GADT & Subcommand Scoping (2026-05-04) — commit 7ed880e
+
+### Command Constructor Added to Parser GADT
+```idris
+Command   : (name : String) -> Parser a -> Parser a
+```
+Wraps each subparser branch with its command name for dispatch matching. Enables proper scoping so flags/opts are only recognized within their registered command context.
+
+### Library Fixes Applied
+- **Run.idr:** `getAllCommandNames` recurses into App nodes so subcommands are recognized at any nesting depth
+- **Run.idr:** `applyBindings.go` falls back to `finalizeParser` when no positional matches a Command name (handles empty args gracefully)
+- **Run.idr:** Pass 1 validation rejects unrecognized flag-like strings (`--foo`) with `UnexpectedError` instead of swallowing as positionals
+- **Help.idr:** `collectCmds` recurses through App/Pure layers to find nested subcommands for help grouping
+
+### Session Learnings
+- **Command dispatch happens in Pass 2 only:** Positionals must match registered command names before being consumed by Argument nodes. This prevents positional interleaving from corrupting subcommand routing.
+- **Help output groups options per-command:** `collectHelpInfo` separates global opts (outside Command branches) from per-subcmd entries. Golden test verifies proper section formatting with aligned columns.
+
+### Help Output Format (Golden Verified)
+```
+Usage: optparse-test [[FILE]]
+
+Options:
+  -v --verbose    Enable verbose mode
+  -o --output <ARG>    Specify output file
+
+Subcommands:
+  clean:
+    -n --dry-run    Do not delete files
+  build:
+    -O --optimize   Enable optimization
 ```
 
 ## Beta2 Bug Fixes (2026-05-03)

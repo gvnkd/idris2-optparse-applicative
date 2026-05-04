@@ -5,6 +5,7 @@ import Options.Applicative.Types
 import Options.Applicative.Error
 import System
 import Data.List
+import Data.Maybe
 
 mutual
   finalizeApp : Parser (x -> a) -> Parser x -> Maybe a
@@ -134,14 +135,32 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
     MkParseEmptyBinds : ParseBindings
     MkParseEmptyBinds = MkParseBindings [] [] []
 
+    ||| Find actual flag names from parser tree for a matched argument.
+    findFlagNames : Parser _ -> String -> Maybe (List String)
+    findFlagNames (Flag names _) arg = if arg `elem` names then Just names else Nothing
+    findFlagNames (App f x) arg = case findFlagNames f arg of Just n => Just n; Nothing => findFlagNames x arg
+    findFlagNames (Alt p1 p2) arg = case findFlagNames p1 arg of Just n => Just n; Nothing => findFlagNames p2 arg
+    findFlagNames (Command _ px) arg = findFlagNames px arg
+    findFlagNames _ _ = Nothing
+
+    ||| Find actual option names from parser tree for a matched argument.
+    findOptionNames : Parser _ -> String -> Maybe (List String)
+    findOptionNames (Option nm _ _) arg = if arg `elem` nm then Just nm else Nothing
+    findOptionNames (App f x) arg = case findOptionNames f arg of Just n => Just n; Nothing => findOptionNames x arg
+    findOptionNames (Alt p1 p2) arg = case findOptionNames p1 arg of Just n => Just n; Nothing => findOptionNames p2 arg
+    findOptionNames (Command _ px) arg = findOptionNames px arg
+    findOptionNames _ _ = Nothing
+
     scanBnds : ParseBindings -> List String -> CollectResult
     scanBnds bnds []            = Collected bnds
     scanBnds (MkParseBindings fls opts pos) (arg :: rest) =
       if checkFlag p arg then
-        scanBnds (MkParseBindings (((getAllFlagNames $ Flag [arg] Nothing), True) :: fls) opts pos) rest
+        let names = fromMaybe [arg] (findFlagNames p arg)
+        in scanBnds (MkParseBindings ((names, True) :: fls) opts pos) rest
       else if checkOpt p arg then
-        case rest of
-          val :: rest' => scanBnds (MkParseBindings fls (opts ++ [([arg], Just val)]) pos) rest'
+        let names = fromMaybe [arg] (findOptionNames p arg)
+        in case rest of
+          val :: rest' => scanBnds (MkParseBindings fls ((names, Just val) :: opts) pos) rest'
           []           => CollectFailure (MissingOption "Option value required")
       else if isFlagLike arg && not (checkFlag p arg) && not (checkOpt p arg) then
         CollectFailure (UnexpectedError ("Unknown argument: " ++ arg))
@@ -151,10 +170,11 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
         scanBnds (MkParseBindings fls opts (pos ++ [arg])) rest
 
     where
-      getAllCommandNames : Parser a -> List String
+      getAllCommandNames : Parser _ -> List String
       getAllCommandNames (Command n _) = [n]
-      getAllCommandNames (Alt p1 p2)    = getAllCommandNames p1 ++ getAllCommandNames p2
-      getAllCommandNames _               = []
+      getAllCommandNames (App f x)     = getAllCommandNames f ++ getAllCommandNames x
+      getAllCommandNames (Alt p1 p2)   = getAllCommandNames p1 ++ getAllCommandNames p2
+      getAllCommandNames _              = []
 
       isCmdName : String -> Bool
       isCmdName s = any (\n => n == s) (getAllCommandNames p)
@@ -168,12 +188,15 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
 
 ||| Pass 2: Apply collected bindings back onto the parser tree.
 ||| Threads positional arguments through the tree left-to-right.
+||| Falls back to finalizeParser for defaults when tree reduction fails.
 export
 applyBindings : Parser a -> ParseBindings -> ParseResult a
 applyBindings p bnds = case goApp bnds.positionals of
     Just (x, [])    => Success x
     Just (x, rest)  => Failure (UnexpectedError ("Extra arguments provided: " ++ show rest))
-    Nothing         => Failure (MissingOption "Unsatisfied parser")
+    Nothing         => case finalizeParser p of
+      Just x  => Success x
+      Nothing => Failure (MissingOption "Unsatisfied parser")
 
   where
     eqNames : List String -> List String -> Bool
@@ -201,17 +224,20 @@ applyBindings p bnds = case goApp bnds.positionals of
 
           where
             ||| Collect all Command names from parser tree.
-            getAllCommandNames : Parser a -> List String
+            getAllCommandNames : Parser _ -> List String
             getAllCommandNames (Command n _) = [n]
-            getAllCommandNames (Alt p1 p2)    = getAllCommandNames p1 ++ getAllCommandNames p2
-            getAllCommandNames _               = []
+            getAllCommandNames (App f x)     = getAllCommandNames f ++ getAllCommandNames x
+            getAllCommandNames (Alt p1 p2)   = getAllCommandNames p1 ++ getAllCommandNames p2
+            getAllCommandNames _              = []
 
             ||| Check if string matches any registered command name.
             isCmdName : String -> Bool
             isCmdName s = any (\n => n == s) (getAllCommandNames p)
 
         go (Command n px)   pos = case pos of
-            []       => Nothing
+            []       => case finalizeParser px of  -- no command given: default to inner parser
+              Just x  => Just (x, pos)
+              Nothing => Nothing
             (s :: t) => if s == n then go px t else Nothing  -- match name, consume from positionals
         go (App pf px)    pos = do
           (f, pos1) <- go pf pos

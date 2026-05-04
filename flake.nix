@@ -84,13 +84,13 @@
           idris2 --install optparse-applicative.ipkg
 
           echo "Building example executable..."
-          (cd example && idris2 -p optparse-applicative --build optparse-applicative-example.ipkg)
+          (cd example && idris2 --build optparse-applicative-example.ipkg)
 
           echo "Building test runner..."
           cd tests
           idris2 --build tests.ipkg
           echo "Running tests..."
-          ./build/test/exec/runtests "$PROJROOT/build/exec/optparse-test"
+          ./build/test/exec/runtests "$PROJROOT/example/build/exec/optparse-test"
         '';
       in
       {

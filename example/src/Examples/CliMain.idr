@@ -58,7 +58,7 @@ subCmds = progDesc "Available subcommands:"
 
     initSub : Parser CmdConfig
     initSub = pure InitCmd
-            <*> strOption ["--template"] `mhelp` "Template to use"
+            <*> (strOption ["--template"] `mhelp` "Template to use")
 
     cleanSub : Parser CmdConfig
     cleanSub = pure CleanCmd
@@ -89,11 +89,8 @@ isUserArg s = case unpack s of
 
 ||| Build help info for the main parser with rich description.
 appHelp : HelpInfo
-appHelp = MkHelpInfo
-  { progName   = "optparse-test"
-  , header     = "Demo CLI parser showcasing optparse-applicative features"
-  , entries    = collectEntries mainParser
-  }
+appHelp = let info = collectHelpInfo "optparse-test" mainParser in
+          { header := "Demo CLI parser showcasing optparse-applicative features" } info
 
 ||| Parse args and dispatch result to appropriate handler.
 runProgram : List String -> IO ()

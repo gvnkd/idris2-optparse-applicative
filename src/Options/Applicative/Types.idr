@@ -87,7 +87,7 @@ public export
 record HelpEntry where
   constructor MkHelpEntry
   optionNames  : List String        -- e.g. ["--output", "-o"]
-  metavar      : String             -- e.g. "FILE", "ARG"  
+  metavar      : String             -- e.g. "FILE", "ARG"
   description  : Maybe String       -- optional help text
 
 ||| Result of help text generation for a parser tree.
@@ -96,5 +96,6 @@ record HelpInfo where
   constructor MkHelpInfo
   progName     : String            -- program name from usage line
   header       : String            -- short description
-  entries      : List HelpEntry    -- all leaf options/flags/arguments
+  globalOpts   : List HelpEntry    -- top-level/global options and flags  
+  subCmds      : List (String, List HelpEntry)  -- grouped per subcommand
 

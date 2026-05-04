@@ -47,7 +47,7 @@ value val m@(MkMod l s h mv _) = MkMod l s h mv (Just val)
 ||| Apply modifiers to create an option parser.
 export
 applyMod : Mod -> Parser String
-applyMod (MkMod l _ _ mv _) = 
+applyMod (MkMod l s h mv dv) =
     case l of
-        []      => Option ["--option"] "ARG"
-        names   => Option names (case mv of Nothing => "ARG"; Just m => m)
+        []      => Option ["--option"] "ARG" Nothing
+        names   => Option names (case mv of Nothing => "ARG"; Just m => m) h

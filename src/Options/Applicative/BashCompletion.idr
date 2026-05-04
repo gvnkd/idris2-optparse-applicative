@@ -13,9 +13,9 @@ isCompletionRequest args = "--bash-completion" `elem` args
 export optionNames : Parser a -> List String
 optionNames p = 
     case p of
-        Flag names         => names
-        Option nm _        => nm
-        Argument _         => []
+        Flag names _       => names
+        Option nm _ _      => nm
+        Argument _ _       => []
         Pure _             => []
         App pf pa          => optionNames pf ++ optionNames pa
         Alt p1 p2          => optionNames p1 ++ optionNames p2

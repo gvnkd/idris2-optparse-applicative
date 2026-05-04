@@ -12,10 +12,10 @@ mutual
   finalizeParser p =
     case p of
         Pure x             => Just x
-        Flag names         => Just False -- Default to false if flag not seen
+        Flag _ _           => Just False -- Default to false if flag not seen
         Fail               => Nothing
-        Option _ _         => Nothing -- Required value missing
-        Argument _         => Nothing -- Required argument missing
+        Option _ _ _       => Nothing -- Required value missing
+        Argument _ _       => Nothing -- Required argument missing
         App pf pa          => finalizeApp pf pa
         Alt p1 p2          => finalizeParser p1 <|> finalizeParser p2
 
@@ -30,9 +30,9 @@ mutual
 matchArg : Parser a -> String -> StepResult a
 matchArg p arg =
     case p of
-      Flag names         => if arg `elem` names then StepSuccess (Pure True) True [] else StepFailure (UnexpectedError arg)
-      Option nm _        => if arg `elem` nm then StepSuccess (Pure arg) arg [] else StepFailure (UnexpectedError arg)
-      Argument _         => StepSuccess (Pure arg) arg []
+      Flag names _       => if arg `elem` names then StepSuccess (Pure True) True [] else StepFailure (UnexpectedError arg)
+      Option nm _ _      => if arg `elem` nm then StepSuccess (Pure arg) arg [] else StepFailure (UnexpectedError arg)
+      Argument _ _       => StepSuccess (Pure arg) arg []
       Pure x             => StepSuccess (Pure x) x []
       App pf pa          => StepMore (App pf pa) [arg]
       Alt p1 p2          => StepMore (Alt p1 p2) [arg]
@@ -47,17 +47,17 @@ consumeArgs p [] =
 
 consumeArgs p (arg :: rest) =
     case p of
-         Flag names     => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
-         Option nm _    => if arg `elem` nm
-                then case rest of
-                    (val :: rest') => consumeArgs (Pure val) rest'
-                    []             => StepFailure (MissingOption "Option value required")
-                else consumeArgs p rest
-         Argument _     => consumeArgs (Pure arg) rest
-         Pure x         => StepSuccess (Pure x) x (arg :: rest)
-         Fail           => StepFailure (UnexpectedError "Failed to parse")
-         App pf pa      => reduceApp pf pa (arg :: rest)
-         Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
+          Flag names _   => if arg `elem` names then consumeArgs (Pure True) rest else consumeArgs p rest
+          Option nm _ _  => if arg `elem` nm
+                 then case rest of
+                     (val :: rest') => consumeArgs (Pure val) rest'
+                     []             => StepFailure (MissingOption "Option value required")
+                 else consumeArgs p rest
+          Argument _ _   => consumeArgs (Pure arg) rest
+          Pure x         => StepSuccess (Pure x) x (arg :: rest)
+          Fail           => StepFailure (UnexpectedError "Failed to parse")
+          App pf pa      => reduceApp pf pa (arg :: rest)
+          Alt p1 p2      => tryLeftOrRight p1 p2 (arg :: rest)
 
   where
     reducePf : Parser (x -> a) -> x -> List String -> StepResult a
@@ -94,18 +94,18 @@ runParser p args =
 
 mutual
   getAllFlagNames : Parser a -> List String
-  getAllFlagNames (Flag names) = names
-  getAllFlagNames (Option _ _) = []
-  getAllFlagNames (Argument _) = []
+  getAllFlagNames (Flag names _) = names
+  getAllFlagNames (Option _ _ _) = []
+  getAllFlagNames (Argument _ _) = []
   getAllFlagNames (Pure _)     = []
   getAllFlagNames (App f x)    = getAllFlagNames f ++ getAllFlagNames x
   getAllFlagNames (Alt p1 p2)  = getAllFlagNames p1 ++ getAllFlagNames p2
   getAllFlagNames Fail         = []
 
   getAllOptionNames : Parser a -> List String
-  getAllOptionNames (Flag _)     = []
-  getAllOptionNames (Option nm _) = nm
-  getAllOptionNames (Argument _) = []
+  getAllOptionNames (Flag _ _)     = []
+  getAllOptionNames (Option nm _ _) = nm
+  getAllOptionNames (Argument _ _) = []
   getAllOptionNames (Pure _)     = []
   getAllOptionNames (App f x)    = getAllOptionNames f ++ getAllOptionNames x
   getAllOptionNames (Alt p1 p2)  = getAllOptionNames p1 ++ getAllOptionNames p2
@@ -133,7 +133,7 @@ collectBindings p args = scanBnds MkParseEmptyBinds args
     scanBnds bnds []            = Collected bnds
     scanBnds (MkParseBindings fls opts pos) (arg :: rest) =
       if checkFlag p arg then
-        scanBnds (MkParseBindings ((getAllFlagNames $ Flag [arg], True) :: fls) opts pos) rest
+        scanBnds (MkParseBindings (((getAllFlagNames $ Flag [arg] Nothing), True) :: fls) opts pos) rest
       else if checkOpt p arg then
         case rest of
           val :: rest' => scanBnds (MkParseBindings fls (opts ++ [([arg], Just val)]) pos) rest'
@@ -162,15 +162,15 @@ applyBindings p bnds = case goApp bnds.positionals of
         go : Parser x -> List String -> Maybe (x, List String)
         go (Pure x)       pos = Just (x, pos)
         go Fail           pos = Nothing
-        go (Flag names)   pos =
+        go (Flag names _)   pos =
           case find (\(ns, v) => eqNames ns names) bnds.flags of
             Just (_, v) => Just (v, pos)
             Nothing     => Just (False, pos)
-        go (Option nm _)  pos =
+        go (Option nm _ _)  pos =
           case find (\(ns, mv) => eqNames ns nm) bnds.options of
             Just (_, Just v) => Just (v, pos)
             _                => Nothing
-        go (Argument _)   pos =
+        go (Argument _ _)   pos =
           case pos of
             (h :: t) => Just (h, t)
             []       => Nothing

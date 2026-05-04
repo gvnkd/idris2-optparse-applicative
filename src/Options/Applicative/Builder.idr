@@ -7,22 +7,22 @@ import Data.List
 ||| Create a string option parser with the given names.
 export
 strOption : (names : List String) -> Parser String
-strOption names = Option names "ARG"
+strOption names = Option names "ARG" Nothing
 
 ||| Create a boolean flag parser with the given names.
 export
 flag' : (names : List String) -> Parser Bool
-flag' names = Flag names
+flag' names = Flag names Nothing
 
 ||| Create an argument parser with the given metavar.
 export
 argument : (metavar : String) -> Parser String
-argument metavar = Argument metavar
+argument metavar = Argument metavar Nothing
 
 ||| Create an option parser with a default value.
 export
 option : (names : List String) -> (defaultValue : String) -> Parser String
-option names defaultValue = Alt (Option names "ARG") (Pure defaultValue)
+option names defaultValue = Alt (Option names "ARG" Nothing) (Pure defaultValue)
 
 ||| Create a subcommand parser from a list of named parsers.
 export

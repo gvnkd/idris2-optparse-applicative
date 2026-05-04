@@ -2,66 +2,78 @@
 module Main
 
 import Options.Applicative.Types
-import Options.Applicative.Builder  
+import Options.Applicative.Builder
 import Options.Applicative.Run
 import Options.Applicative.Multi
 import Options.Applicative.Error
 import Options.Applicative.Help
 import Options.Applicative.Modifiers
+import Options.Applicative.Subparser
 import System
 
-||| Command enumeration for subcommand routing.
-data Cmd = Build | Init | Clean | Status
+||| Configuration for each subcommand.
+data CmdConfig : Type where
+  BuildCmd  : (optimize : Bool) -> CmdConfig
+  InitCmd   : (template : String) -> CmdConfig
+  CleanCmd  : (dryRun : Bool) -> CmdConfig
+  StatusCmd : CmdConfig
 
-||| Configuration data structure parsed from command line.
+||| Top-level configuration parsed from command line.
 record ToolConfig where
   constructor MkToolConfig
   verbose    : Bool
   output     : String  
   inputFiles : List String
-  cmd        : Cmd
+  cmd        : CmdConfig
 
-||| Convert Cmd enum to human-readable name.
-cmdName : Cmd -> String  
-cmdName Build  = "build"
-cmdName Init   = "init"
-cmdName Clean  = "clean"
-cmdName Status = "status"
+||| Convert CmdConfig to human-readable name.
+cmdName : CmdConfig -> String
+cmdName (BuildCmd _) = "build"
+cmdName (InitCmd _)  = "init"
+cmdName (CleanCmd _) = "clean"
+cmdName (StatusCmd {}) = "status"
 
 ||| Print parsed configuration to stdout.
 printCfg : ToolConfig -> IO ()
 printCfg cfg = do
-  putStrLn "=== Parsed config ==="  
+  putStrLn "=== Parsed config ==="
   putStrLn $ "verbose    = " ++ show (verbose cfg)
   putStrLn $ "output     = " ++ output cfg
   putStrLn $ "inputFiles = " ++ show (inputFiles cfg)
   putStrLn $ "cmd        = " ++ cmdName cfg.cmd
   putStrLn "====================="
 
-||| Subcommand parser using Alt branching for routing.
-commandParser : Parser Cmd
-commandParser = cmdBuild <|> cmdInit <|> cmdClean <|> cmdStatus
+||| Build subparser with four distinct commands.
+subCmds : SubparserConfig CmdConfig
+subCmds = progDesc "Available subcommands:"
+         $ mkConfig [ ("build", buildSub),
+                      ("init", initSub),
+                      ("clean", cleanSub),
+                      ("status", statusSub) ]
 
   where
-    cmdBuild : Parser Cmd
-    cmdBuild = pure Build `mhelp` "Build the project"
+    buildSub : Parser CmdConfig
+    buildSub = pure BuildCmd
+              <*> (flag' ["-O", "--optimize"] `mhelp` "Enable optimization")
 
-    cmdInit : Parser Cmd  
-    cmdInit = pure Init `mhelp` "Initialize a new project"
+    initSub : Parser CmdConfig
+    initSub = pure InitCmd
+            <*> strOption ["--template"] `mhelp` "Template to use"
 
-    cmdClean : Parser Cmd
-    cmdClean = pure Clean `mhelp` "Clean build artifacts"
+    cleanSub : Parser CmdConfig
+    cleanSub = pure CleanCmd
+             <*> (flag' ["-n", "--dry-run"] `mhelp` "Do not delete files")
 
-    cmdStatus : Parser Cmd
-    cmdStatus = pure Status `mhelp` "Show project status (default)"
+    statusSub : Parser CmdConfig
+    statusSub = pure StatusCmd {}
 
 ||| Build the CLI parser tree using Applicative composition with modifiers.
 mainParser : Parser ToolConfig
 mainParser = pure MkToolConfig
           <*> (flag' ["-v", "--verbose"] `mhelp` "Enable verbose mode")
-          <*> (option ["-o", "--output"] "stdout" `mhelp` "Specify output file")  
-          <*> manyUpTo 64 (argument "FILE" `metavarMod` "Input files to process")
-          <*> commandParser
+          <*> (option ["-o", "--output"] "stdout" `mhelp` "Specify output file")
+          <*> manyUpTo 64 (argument "FILE" `mhelp` "Input files to process")
+          <*> mkSubparser subCmds
 
 ||| Test helper: parse an explicit argument list without touching system IO.
 testParse : List String -> ParseResult ToolConfig
@@ -71,15 +83,15 @@ testParse args = runParserWith mainParser args
 isUserArg : String -> Bool
 isUserArg s = case unpack s of
     '/' :: _ => False
-    '-' :: 'l' :: _ => False  
+    '-' :: 'l' :: _ => False
     '-' :: 'L' :: _ => False
     _ => True
 
 ||| Build help info for the main parser with rich description.
 appHelp : HelpInfo
-appHelp = MkHelpInfo 
+appHelp = MkHelpInfo
   { progName   = "optparse-test"
-  , header     = "Demo CLI parser showcasing optparse-applicative features"  
+  , header     = "Demo CLI parser showcasing optparse-applicative features"
   , entries    = collectEntries mainParser
   }
 
@@ -91,12 +103,12 @@ runProgram rawArgs = if isHelpFlag rawArgs then showHelp else parseAndPrint (fil
     isHelpFlag : List String -> Bool
     isHelpFlag args = elem "--help" args || elem "-h" args
 
-    showHelp : IO ()  
+    showHelp : IO ()
     showHelp = putStrLn (formatHelp appHelp)
 
     parseAndPrint : List String -> IO ()
     parseAndPrint cleaned = do
-      res <- pure $ runParserWith mainParser cleaned  
+      res <- pure $ runParserWith mainParser cleaned
       case res of
         Success cfg => printCfg cfg
         Failure err => putStrLn $ "Error: " ++ renderError err

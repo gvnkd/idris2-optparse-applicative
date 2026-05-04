@@ -73,15 +73,15 @@
           echo "Build complete."
         '';
 
-        testScript = pkgs.writeShellScriptBin "test" ''
+       runTestsScript = pkgs.writeShellScriptBin "run-tests" ''
           set -e
           PROJROOT=$(pwd)
 
           echo "Building main library..."
           idris2 --build optparse-applicative.ipkg
 
-          echo "Building example executable..."  
-          idris2 --build optparse-applicative-example.ipkg
+          echo "Building example executable..."
+          idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
 
           echo "Building test runner..."
           cd tests
@@ -104,7 +104,8 @@
             python3
             gnused gnugrep gawk diffutils jq yq ripgrep
             buildScript
-            testScript
+            runTestsScript
+            tree
           ];
           buildInputs = [
             idris2Wrapped

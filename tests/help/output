@@ -1,7 +1,10 @@
 optparse-test: Demo CLI parser showcasing optparse-applicative features
-Usage: optparse-test[Input files to process]
-<pos> <Input files to process>    
--o --output <ARG>    
+Usage: optparse-test[FILE]
+-n --dry-run    
+--template <ARG>    
+-O --optimize    
+<pos> <FILE>    Input files to process
+-o --output <ARG>    Specify output file
 -v --verbose    
 
 

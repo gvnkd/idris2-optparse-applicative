@@ -29,9 +29,9 @@ formatOption names helpText metavarText = names ++ " (" ++ showMetavar ++ ")" ++
 -- ||| Collect leaf nodes from a parser tree into help entries.
 export collectEntries : Parser a -> List HelpEntry
 collectEntries p = case p of
-    Flag names         => MkHelpEntry names "" Nothing :: []
-    Option nm mv       => MkHelpEntry nm mv Nothing :: []  
-    Argument mv        => MkHelpEntry ["<pos>"] mv Nothing :: []
+    Flag names _       => MkHelpEntry names "" Nothing :: []
+    Option nm mv h     => MkHelpEntry nm mv h :: []
+    Argument mv h      => MkHelpEntry ["<pos>"] mv h :: []
     Pure _             => []
     App pf pa          => collectEntries pf ++ collectEntries pa
     Alt p1 p2          => collectEntries p1 ++ collectEntries p2
@@ -39,12 +39,18 @@ collectEntries p = case p of
 
 -- ||| Attach a help description to any parser node (preserves semantics).
 export mhelp : Parser a -> String -> Parser a
-mhelp p _ = p
+mhelp (Flag names _) h         = Flag names (Just h)
+mhelp (Option nm mv _) h       = Option nm mv (Just h)
+mhelp (Argument mv _) h        = Argument mv (Just h)
+mhelp (Pure x) _               = Pure x
+mhelp (App pf pa) h            = App (mhelp pf h) pa
+mhelp (Alt p1 p2) h            = Alt (mhelp p1 h) (mhelp p2 h)
+mhelp Fail _                   = Fail
 
 -- ||| Override metavar for argument-style parsers.  
 export metavarMod : Parser String -> String -> Parser String
-metavarMod (Option nm _) mv' = Option nm mv'
-metavarMod (Argument _) mv'  = Argument mv'
+metavarMod (Option nm _ h) mv' = Option nm mv' h
+metavarMod (Argument _ h) mv'  = Argument mv' h
 metavarMod p _               = p
 
 -- ||| Generate usage line: progName + arg placeholders.

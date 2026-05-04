@@ -12,7 +12,7 @@ record OptReader (a : Type) where
 
 -- ||| Apply a reader to create a typed option parser.
 export optionWithReader : List String -> OptReader a -> Parser (Maybe a)
-optionWithReader names reader = map (reader.readFromText) (Option names "ARG")
+optionWithReader names reader = map (reader.readFromText) (Option names "ARG" Nothing)
 
 -- ||| Create a reader from a parsing function.
 export mkReader : (a : Type) -> String -> (String -> Maybe a) -> OptReader a

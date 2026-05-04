@@ -33,7 +33,14 @@ cmdName (InitCmd _)  = "init"
 cmdName (CleanCmd _) = "clean"
 cmdName (StatusCmd {}) = "status"
 
-||| Print parsed configuration to stdout.
+||| Print subcommand-specific parsed fields.
+printSubCmdDetails : CmdConfig -> IO ()
+printSubCmdDetails (BuildCmd opt) = putStrLn $ "  --optimize   = " ++ show opt
+printSubCmdDetails (InitCmd tpl)  = putStrLn $ "  --template   = " ++ tpl
+printSubCmdDetails (CleanCmd dry) = putStrLn $ "  -n/--dry-run  = " ++ show dry
+printSubCmdDetails StatusCmd {}   = pure ()
+
+||| Print parsed configuration to stdout including subcommand-specific details.
 printCfg : ToolConfig -> IO ()
 printCfg cfg = do
   putStrLn "=== Parsed config ==="
@@ -41,6 +48,7 @@ printCfg cfg = do
   putStrLn $ "output     = " ++ output cfg
   putStrLn $ "inputFiles = " ++ show (inputFiles cfg)
   putStrLn $ "cmd        = " ++ cmdName cfg.cmd
+  printSubCmdDetails cfg.cmd
   putStrLn "====================="
 
 ||| Build subparser with four distinct commands.

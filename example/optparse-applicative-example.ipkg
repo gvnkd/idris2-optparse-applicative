@@ -1,0 +1,14 @@
+package optparse-applicative-example
+
+authors = "Rune"
+
+modules =
+  Main,
+  TestParse
+
+sourcedir = "."
+paths = ["../src"]
+
+main = Main
+executable = "optparse-test"
+

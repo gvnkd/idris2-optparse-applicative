@@ -2,14 +2,13 @@ package optparse-applicative-example
 
 authors = "Rune"
 
-modules =
-  Main,
-  TestParse
+modules = Examples.CliMain
+        , Examples.TestParse
 
 depends = optparse-applicative
 
-sourcedir = "example"
+sourcedir = "src"
 
-main = Main
+main = CliMain
 executable = "optparse-test"
 

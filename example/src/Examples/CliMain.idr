@@ -1,5 +1,5 @@
 ||| Executable entry point for optparse-applicative demo.
-module Main
+module Examples.CliMain
 
 import Options.Applicative.Types
 import Options.Applicative.Builder

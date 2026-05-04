@@ -1,5 +1,5 @@
 ||| Quick parser sanity tests for beta release.
-module TestParse
+module Examples.TestParse
 
 import Options.Applicative.Types
 import Options.Applicative.Builder

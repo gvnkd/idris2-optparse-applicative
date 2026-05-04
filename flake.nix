@@ -80,6 +80,9 @@
           echo "Building main library..."
           idris2 --build optparse-applicative.ipkg
 
+          echo "Installing library to registry..."
+          idris2 --install optparse-applicative.ipkg
+
           echo "Building example executable..."
           idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
 

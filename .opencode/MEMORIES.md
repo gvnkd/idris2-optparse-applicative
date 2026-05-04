@@ -327,31 +327,40 @@ Help golden test output now shows descriptions for each option:
 ```idris
 Command   : (name : String) -> Parser a -> Parser a
 ```
-Wraps each subparser branch with its command name for dispatch matching. Enables proper scoping so flags/opts are only recognized within their registered command context.
+Wraps each subparser branch with its command name for dispatch matching. Enables proper scoping so flags/opts are only recognized within their registered command context. `mkSubparser` wraps branches automatically: `Command "clean" cleanSub`.
 
 ### Library Fixes Applied
-- **Run.idr:** `getAllCommandNames` recurses into App nodes so subcommands are recognized at any nesting depth
-- **Run.idr:** `applyBindings.go` falls back to `finalizeParser` when no positional matches a Command name (handles empty args gracefully)
-- **Run.idr:** Pass 1 validation rejects unrecognized flag-like strings (`--foo`) with `UnexpectedError` instead of swallowing as positionals
-- **Help.idr:** `collectCmds` recurses through App/Pure layers to find nested subcommands for help grouping
+- **Run.idr:** `getAllCommandNames` recurses into App nodes so subcommands are recognized at any nesting depth under `<*>` composition
+- **Run.idr:** `applyBindings.go` falls back to `finalizeParser px` when no positional matches a Command name (handles empty args gracefully)
+- **Run.idr:** Pass 1 validation rejects unrecognized flag-like strings (`--foo`) with `UnexpectedError` instead of swallowing as positionals via `isFlagLike arg && not (checkFlag p arg)` guard
+- **Help.idr:** `collectCmds` recurses through App/Pure layers to find nested subcommands for help grouping. Uses `intersperse "\n"` to avoid double blank lines between sections
 
 ### Session Learnings
-- **Command dispatch happens in Pass 2 only:** Positionals must match registered command names before being consumed by Argument nodes. This prevents positional interleaving from corrupting subcommand routing.
-- **Help output groups options per-command:** `collectHelpInfo` separates global opts (outside Command branches) from per-subcmd entries. Golden test verifies proper section formatting with aligned columns.
+- **Command dispatch happens in Pass 2 only:** Positionals must match registered command names before being consumed by Argument nodes. This prevents positional interleaving from corrupting subcommand routing during global collection.
+- **Help output groups options per-command:** `collectHelpInfo` separates global opts (outside Command branches) from per-subcmd entries via separate collector functions. Golden test verifies proper section formatting with aligned columns under Options/Subcommands headers.
 
-### Help Output Format (Golden Verified)
+### Help Output Format (Golden Verified — 7/7 tests pass)
 ```
+optparse-test: Demo CLI parser showcasing optparse-applicative features
 Usage: optparse-test [[FILE]]
 
 Options:
-  -v --verbose    Enable verbose mode
-  -o --output <ARG>    Specify output file
+
+-v --verbose    Enable verbose mode
+-o --output <ARG>    Specify output file
+<pos> <FILE>    Input files to process
 
 Subcommands:
+  status:
+
   clean:
-    -n --dry-run    Do not delete files
+    -n --dry-run  --  Do not delete files
+
+  init:
+    --template <ARG>  --  Template to use
+
   build:
-    -O --optimize   Enable optimization
+    -O --optimize  --  Enable optimization
 ```
 
 ## Beta2 Bug Fixes (2026-05-03)

@@ -50,36 +50,51 @@
           chmod +x $out/bin/doc
         '';
 
-        pkg = pkgs.idris2Packages.buildIdris {
+        # Library package (no executable, just the core modules)
+        libPkg = pkgs.idris2Packages.buildIdris {
           src = ./.;
           ipkgName = "optparse-applicative";
           version = "0.1.0";
           inherit idrisLibraries;
         };
 
+        # Example package depends on the library (paths directive in ipkg)
+        examplePkg = pkgs.idris2Packages.buildIdris {
+          src = ./example;
+          ipkgName = "optparse-applicative-example";
+          version = "0.1.0";
+          inherit idrisLibraries;
+        };
+
         buildScript = pkgs.writeShellScriptBin "build" ''
           set -e
-          echo "Building optparse-applicative..."
+          echo "Building optparse-applicative library..."
           idris2 --build optparse-applicative.ipkg
           echo "Build complete."
         '';
 
         testScript = pkgs.writeShellScriptBin "test" ''
           set -e
+          PROJROOT=$(pwd)
+
           echo "Building main library..."
           idris2 --build optparse-applicative.ipkg
+
+          echo "Building example executable..."  
+          idris2 --build optparse-applicative-example.ipkg
+
           echo "Building test runner..."
           cd tests
           idris2 --build tests.ipkg
           echo "Running tests..."
-          ./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
-          cd ..
+          ./build/test/exec/runtests "$PROJROOT/build/exec/optparse-test"
         '';
       in
       {
         packages = {
-          default = pkg.executable;
-          lib = pkg.library';
+          default = examplePkg.executable;
+          lib = libPkg.library';
+          example = examplePkg.executable;
         };
 
         devShells.default = pkgs.mkShell {

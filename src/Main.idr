@@ -56,12 +56,23 @@ appHelp = MkHelpInfo { progName = "optparse-test", header = "Demo CLI parser", e
 
 ||| Parse args and dispatch result to appropriate handler.
 runProgram : List String -> IO ()
-runProgram rawArgs = do
-  res <- pure $ runParserWith mainParser (filter isUserArg rawArgs)
-  case res of
-    Success cfg => printConfig cfg  
-    Failure err => putStrLn $ "Error: " ++ renderError err
-    CompletionInvoked => putStrLn "Completion invoked"
+runProgram rawArgs = if isHelpFlag rawArgs then showHelp else parseAndPrint (filter isUserArg rawArgs)
+
+  where
+    isHelpFlag : List String -> Bool
+    isHelpFlag args = elem "--help" args || elem "-h" args
+
+    showHelp : IO ()
+    showHelp = putStrLn (formatHelp appHelp)
+
+    parseAndPrint : List String -> IO ()
+    parseAndPrint cleaned = do
+      res <- pure $ runParserWith mainParser cleaned
+      case res of
+        Success cfg => printConfig cfg  
+        Failure err => putStrLn $ "Error: " ++ renderError err
+        CompletionInvoked => putStrLn "Completion invoked"
+
 
 ||| Main entry point: parse CLI args and print config.
 main : IO ()

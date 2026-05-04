@@ -1,0 +1,7 @@
+optparse-test: Demo CLI parser
+Usage: optparse-test[FILE]
+<pos> <FILE>    
+-o --output <ARG>    
+-v --verbose    
+
+

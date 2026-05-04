@@ -135,6 +135,45 @@ Holes inside instance bodies (`Functor where ...`) are **NOT** visible to REPL. 
 - **`mutual` blocks work reliably** in Idris 0.8; prefer them over forward references when possible
 - **GADT phantom types + public export = unification hell**; always test with `export` first before promoting to `public export`
 
+## Two-Pass Beta Release (2026-05-04)
+
+### Two-Pass Parser Implementation
+Completely replaced single-pass argument traversal with two-phase architecture:
+
+**Pass 1 — Collection:** Global scan of all CLI args into a flat binding state (`ParseBindings`)
+- Flags matched by `isKnownFlag` against tree leaves → tracked as `(List String, Bool)` pairs
+- Options consume next arg as value → tracked as `(List String, Maybe String)` pairs
+- Everything else accumulates in order as positionals
+
+**Pass 2 — Application:** Walk parser tree once, look up bindings by name via `eqNames`
+- `Flag names` → find matching entry in `bnds.flags`, default to False if unseen
+- `Option nm` → find matching entry in `bnds.options`, return Nothing if absent
+- `Argument _` → pull from head of `positionals` list (FIFO)
+- Applicative structure reconstructed via App/Alt nodes walking
+
+### Runtime Argument Filtering
+`execParser` now strips internal runtime args from `getArgs`:
+```idris
+isUserArg : String -> Bool
+isUserArg x = case unpack x of
+    '/' :: _ => False   -- skip absolute paths (.so, .ttc)
+    '-' :: 'l' :: _ => False  -- skip -l library refs
+    '-' :: 'L' :: _ => False -- skip -L library dirs  
+    _ => True
+```
+
+### Session Learnings from Two-Pass Implementation
+- **`collectBindings`/`applyBindings` mutual block required** to avoid forward reference errors in Idris 0.8
+- **Two-pass eliminates argument starvation:** flags/options no longer compete with positionals during tree traversal
+- **Interleaving fixed by design:** global scan decouples argument order from parser tree shape
+- **Golden tests validate correctness:** all 6 golden cases pass including `interleaved` and `flag-only`
+
+### Architecture Changes
+- Added `ParseBindings` record to `Types.idr`: flags, options, positionals lists
+- Added `CollectResult` type: success/failure for collection phase
+- All mutual helpers (`getAllFlagNames`, `checkFlag`, etc.) live in top-level mutual block in Run.idr
+- Two-pass functions exportable; single-pass retained for backward compat
+
 ## Beta2 Bug Fixes (2026-05-03)
 
 ### Critical Bugs Fixed

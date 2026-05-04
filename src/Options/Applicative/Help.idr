@@ -39,32 +39,43 @@ collectEntries p = case p of
 
 -- ||| Generate usage line: progName + arg placeholders.
 export usageLine : String -> Parser a -> String
-usageLine pname p = "Usage: " ++ pname ++ argsSummary
+usageLine pname p = "Usage: " ++ pname ++ argsStr
 
   where
-    -- Check if a help entry represents a positional argument
+    -- Check if entry represents a positional argument placeholder
     isPositional : HelpEntry -> Bool
     isPositional entry = ["<pos>"] `isPrefixOf` entry.optionNames
 
-    -- Extract positional argument metavariables from collected entries
+    -- Extract unique positional metavariables from collected entries  
     positions : List String
-    positions = map (\e => e.metavar) (filter isPositional $ collectEntries p)
+    positions = nub (map (\e => e.metavar) (filter isPositional $ collectEntries p))
 
-    -- Build bracketed arg placeholders like "[FILE] [FILE]"
-    argsSummary : String
-    argsSummary = if null positions then "" else " " ++ unwords (map (\m => "[" ++ m ++ "]") positions)
+    -- Build bracketed arg placeholders for usage line (limit to 3 repeats max)
+    argsStr : String
+    argsStr = if null positions then "" else " " ++ unwords (take 3 $ map (\m => "[" ++ m ++ "]") positions)
 
 -- ||| Format full help text with header, entries, and alignment.  
 export formatHelp : HelpInfo -> String
 formatHelp info = headerLine ++ "\n" ++ usageLineLocal ++ "\n" ++ optionsLocal ++ "\n"
 
   where
+   -- Helper: check if entry already appears in deduplicated list  
+    alreadySeen : HelpEntry -> List HelpEntry -> Bool
+    alreadySeen new seen = any (\s => s.optionNames == new.optionNames && s.metavar == new.metavar) seen
+
+    -- Deduplicate entries to avoid manyUpTo expansion noise  
+    uniqueEntries : List HelpEntry
+    uniqueEntries = foldl dedup [] info.entries
+      where
+        dedup : List HelpEntry -> HelpEntry -> List HelpEntry
+        dedup acc entry = if alreadySeen entry acc then acc else entry :: acc
+
     -- Check if entry is positional vs named option/flag  
     isPos : HelpEntry -> Bool
     isPos entry = ["<pos>"] `isPrefixOf` entry.optionNames
 
     -- Combine option names and metavar into left column text
-    namesStr : HelpEntry -> String
+    namesStr : HelpEntry -> String  
     namesStr entry = unwords entry.optionNames ++ if null entry.metavar then "" else " <" ++ entry.metavar ++ ">"
 
     -- Extract description text for right column  
@@ -77,9 +88,9 @@ formatHelp info = headerLine ++ "\n" ++ usageLineLocal ++ "\n" ++ optionsLocal +
     formatEntry : HelpEntry -> (String, String)
     formatEntry e = (namesStr e, descStr e)
 
-    -- Format optional argument placeholders for usage line
+    -- Format optional argument placeholders for usage line  
     argsStr : String
-    argsStr = unwords (map (\e => "[" ++ e.metavar ++ "]") (filter isPos info.entries))
+    argsStr = unwords (map (\e => "[" ++ e.metavar ++ "]") (filter isPos uniqueEntries))
 
     -- Usage synopsis from collected parser entries
     usageLineLocal : String
@@ -89,6 +100,6 @@ formatHelp info = headerLine ++ "\n" ++ usageLineLocal ++ "\n" ++ optionsLocal +
     headerLine : String
     headerLine = if null info.header then info.progName else info.progName ++ ": " ++ info.header
 
-    -- Format all entries as aligned columns using existing helper
+    -- Format all entries as aligned columns using existing helper  
     optionsLocal : String
-    optionsLocal = alignColumns (map formatEntry info.entries)
+    optionsLocal = alignColumns (map formatEntry uniqueEntries)

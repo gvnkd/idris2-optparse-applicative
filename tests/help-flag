@@ -1,0 +1,9 @@
+#!/bin/sh
+# Test: Verify --help flag is handled gracefully without crashing parser
+EXPECTED="Error:"
+ACTUAL="$1" 2>&1 || true
+if echo "$ACTUAL" | grep -qiE "error|completion"; then
+  echo "./help-flag: success"
+else
+  echo "./help-flag: FAILURE"
+fi

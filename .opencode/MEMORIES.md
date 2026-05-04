@@ -1,28 +1,59 @@
 # optparse-applicative - Adventure Memories
 
 ## Project Overview
-Free applicative CLI parser library in Idris 2, inspired by Haskell's `optparse-applicative`. Three phases completed, tagged at `alpha` (commit `e914317`). Clean build across **12 modules**.
+Free applicative CLI parser library in Idris 2, inspired by Haskell's `optparse-applicative`. Library lives in `src/Options/Applicative/` (**11 modules**). Demo application with subcommands and help text is in `example/`.
 
-### Module Map
+### Project Structure
+```
+src/Options/Applicative/*.idr   # Pure library (11 modules)
+  Types.idr                     # Parser GADT + HelpEntry, ParseBindings, CollectResult
+  Builder.idr                   # DSL: strOption, flag', argument, option, subparser
+  Run.idr                       # Two-pass interpreter (collectBindings → applyBindings)
+  Modifiers.idr                 # Option modifier configuration (Mod record)
+  Help.idr                      # Help text generation: mhelp, collectEntries, formatHelp
+  Subparser.idr                 # Subcommand routing: mkConfig, progDesc, mkSubparser
+  BashCompletion.idr            # Completion script generation
+  Env.idr                       # Environment variable fallback placeholders
+  Multi.idr                     # Bounded repetition: manyUpTo, someUpTo
+  Validation.idr                # Typed readers (autoInt/autoNat/str) + predicate validation
+  Error.idr                     # ParseError rendering
+
+example/                        # Working end-user application (depends on library via `-p`)
+  Main.idr                      # Full CLI with subcommands, help text, golden tests
+  TestParse.idr                 # Unit test helpers for REPL verification
+  optparse-applicative-example.ipkg  # Package definition with `depends = optparse-applicative`
+
+tests/                          # Golden test harness (Test.Golden)
+```
+
+### Module Map (Library Only)
 | Module | Purpose |
 |--------|---------|
-| `Types.idr` | Core Parser GADT (Flag, Option, Argument, Pure, App, Alt, Fail) + Functor/Applicative/Alternative instances |
+| `Types.idr` | Parser GADT (Flag/Option/Argument carry optional `helpText : Maybe String`) + Functor/Applicative/Alternative |
 | `Builder.idr` | DSL combinators: `strOption`, `flag'`, `argument`, `option`, `subparser`, `command`, `info` |
-| `Run.idr` | Interpreter: mutual finalizers (`finalizeApp`/`finalizeParser`), argument consumption, step results |
+| `Run.idr` | Two-pass interpreter: mutual finalizers, collectBindings → applyBindings |
 | `Error.idr` | Error rendering/printing for parse failures |
-| `Help.idr` | Help text generation: column alignment, option formatting |
+| `Help.idr` | Help introspection: mhelp attaches descriptions to GADT nodes, collectEntries extracts metadata |
 | `Subparser.idr` | Subcommand routing: `mkConfig`, `progDesc`, `lookupCommand`, `mkSubparser` |
-| `Modifiers.idr` | Parser modifiers (full Mod record and modifier functions) |
-| `BashCompletion.idr` | Bash completion script generation; `isCompletionRequest`; `optionNames` AST traversal |
+| `Modifiers.idr` | Option modifier configuration (long/short/help/metavar/value) |
+| `BashCompletion.idr` | Completion script generation via AST traversal |
 | `Env.idr` | Environment variable fallback: `envOption`, `envOptionWithDefault` |
-| `Multi.idr` | Multi-value combinators: `many`, `some`, `concatOptions`, `consApp` |
-| `Validation.idr` | Typed readers (OptReader GADT), `validate()` predicate, autoInt/str/autoNat/autoDouble |
-| `Main.idr` | Test harness: `mainParser`, `testParse` exposed for REPL verification |
+| `Multi.idr` | Bounded repetition: `manyUpTo n`, `someUpTo n` |
+| `Validation.idr` | Typed readers (OptReader GADT), predicate validators, autoInt/autoNat/str |
 
 ## Build Commands
 ```bash
-# Clean rebuild (always start here)
-rm -rf build/ttc/ && idris2 --build optparse-applicative.ipkg
+# Library only
+idris2 --build optparse-applicative.ipkg
+
+# Install library to user registry (required before building examples)
+idris2 --install optparse-applicative.ipkg
+
+# Example application (depends on installed library via `-p`)
+idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
+
+# Golden test suite (nix devShell command: run-tests)
+run-tests  # builds lib, installs it, builds example, runs golden tests
 
 # Query hole types (REPL heredoc)
 idris2 --repl optparse-applicative.ipkg <<'EOF'
@@ -33,6 +64,72 @@ EOF
 # Verify current state
 git log --oneline -5 && git tag -l
 ```
+src/Options/Applicative/    # Pure library (11 modules)
+  Types.idr                 # Core Parser GADT + HelpEntry, ParseBindings, etc.
+  Builder.idr               # DSL combinators: strOption, flag', argument, option, subparser
+  Run.idr                   # Two-pass interpreter + mutual finalizers
+  Modifiers.idr             # Mod record and modifier functions
+  Help.idr                  # Full help text introspection: collectEntries, mhelp, formatHelp
+  Subparser.idr             # Subcommand routing: mkConfig, progDesc, mkSubparser
+  Multi.idr                 # Bounded multi-value: manyUpTo, someUpTo
+  Validation.idr            # Typed readers (OptReader), autoInt/str/autoNat/autoDouble
+  Env.idr                   # Environment variable fallback placeholders
+  BashCompletion.idr        # Shell completion script generation
+  Error.idr                 # ParseError rendering
+
+example/                    # End-user demo application (depends on library via `-p`)
+  Main.idr                  # Working CLI with subcommands, help text, golden tests
+  TestParse.idr             # Unit test helper for REPL verification
+  optparse-applicative-example.ipkg  # Package definition with depends = optparse-applicative
+```
+
+### Module Map (Library)
+| Module | Purpose |
+|--------|---------|
+| `Types.idr` | Core Parser GADT (Flag/Option/Argument now carry optional `helpText : Maybe String`) + Functor/Applicative/Alternative instances |
+| `Builder.idr` | DSL combinators: `strOption`, `flag'`, `argument`, `option`, `subparser`, `command`, `info` |
+| `Run.idr` | Two-pass interpreter: mutual finalizers, collectBindings/applyBindings, step results |
+| `Error.idr` | Error rendering/printing for parse failures |
+| `Help.idr` | **Full help introspection:** `mhelp` attaches descriptions to GADT nodes, `collectEntries` extracts HelpEntry list with descriptions, `formatHelp` renders aligned columns with usage synopsis |
+| `Subparser.idr` | Subcommand routing: `mkConfig`, `progDesc`, `lookupCommand`, `mkSubparser` |
+| `Modifiers.idr` | Parser modifiers (full Mod record and modifier functions) |
+| `BashCompletion.idr` | Bash completion script generation; `isCompletionRequest`; `optionNames` AST traversal |
+| `Env.idr` | Environment variable fallback: `envOption`, `envOptionWithDefault` |
+| `Multi.idr` | Multi-value combinators: `manyUpTo`, `someUpTo`, `concatOptions`, `consApp` |
+| `Validation.idr` | Typed readers (OptReader GADT), `validate()` predicate, autoInt/str/autoNat/autoDouble |
+
+## Build Commands
+```bash
+# Clean rebuild (always start here)
+rm -rf build/ttc/ && idris2 --build optparse-applicative.ipkg
+
+# Install library to user registry (required before building example)
+idris2 --install optparse-applicative.ipkg
+
+# Build example application (depends on installed library via `-p`)
+idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
+
+# Run full test suite (via nix devShell command)
+run-tests  # builds lib, example, golden tests; compares output against expected/
+
+# Query hole types (REPL heredoc)
+idris2 --repl optparse-applicative.ipkg <<'EOF'
+:import Options.Applicative.ModuleName
+:t rhs_hole_name        # NO ? prefix!
+EOF
+
+# Verify current state
+git log --oneline -5 && git tag -l
+```
+
+## Golden Test Harness (Test.Golden)
+Tests live under `tests/` and use Idris2's built-in `Test.Golden` framework. Each test directory contains a `run` shell script that invokes the binary with specific arguments, and an `expected` file for output comparison. Run via:
+
+```bash
+cd tests && idris2 --build tests.ipkg && ./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
+```
+
+Golden test suite includes 7 cases covering flags, options, positionals, interleaving, help text, and full combinations. Update expected outputs with `--interactive` flag when parser behavior intentionally changes.
 
 ## Known Idris 0.8 Bugs & Workarounds
 
@@ -64,6 +161,16 @@ git log --oneline -5 && git tag -l
 
 ## Architecture Decisions
 
+### Help Metadata in GADT Constructors
+Flag/Option/Argument now carry optional `helpText : Maybe String`. The `mhelp` combinator reconstructs these nodes with populated descriptions. This enables full help text introspection at runtime via `collectEntries` without external metadata registries.
+
+```idris
+data Parser : Type -> Type where
+  Flag      : (names : List String) -> (helpText : Maybe String) -> Parser Bool
+  Option    : (names : List String) -> (metavar : String) -> (helpText : Maybe String) -> Parser String
+  Argument  : (metavar : String) -> (helpText : Maybe String) -> Parser String
+```
+
 ### Mutual Finalizers in Run.idr
 Flags default to `False` when arguments run out. Implemented via mutual block:
 ```idris
@@ -89,6 +196,15 @@ Three states drive the interpreter loop:
 - `StepSuccess` — parser satisfied, return value + leftover args
 - `StepFailure` — irrecoverable error, abort with message
 - `StepMore` — partial progress, re-enter loop with remaining args
+
+### Library/Example Separation (Beta2)
+The library (`optparse-applicative.ipkg`) now contains only the core 11 modules. The example application (`example/optparse-applicative-example.ipkg`) imports all library modules and adds `Main.idr` + `TestParse.idr`. This enables end-users to reference `example/` as a working template for consuming the library via `-p optparse-applicative`.
+
+### Library/Example Separation
+The library (`optparse-applicative.ipkg`) contains only core modules. Example application lives in `example/` and depends on the installed library via `-p optparse-applicative`. The flake.nix test script (`run-tests`) builds both sequentially: library first, then example.
+
+### Subcommand Configuration Pattern
+Subcommands use dedicated data types (e.g., `CmdConfig : Type`) with per-command fields. Each subcommand parser constructs its own config variant via applicative composition. The top-level parser wraps all variants into a single `ToolConfig` record containing the global flags and the polymorphic command result.
 
 ## Style Guide Compliance
 See `STYLE.md` in project root. Key conventions followed:
@@ -129,7 +245,17 @@ Holes inside instance bodies (`Functor where ...`) are **NOT** visible to REPL. 
 | Deep recursive parsers beyond 256 args | Multi.idr | Idris stack limit on large trees |
 | IO-based argument fetching (`getArgs`) | Run.idr | Requires system library imports not in scope |
 
-## Session Learnings
+## Session Learnings (Updated 2026-05-04)
+### Help Text Introspection Implementation
+- **Help metadata in GADT fields:** Storing `helpText : Maybe String` directly on Flag/Option/Argument constructors enables full introspection without external registries. The `mhelp` combinator reconstructs parser nodes with attached descriptions, which `collectEntries` then extracts into `HelpEntry` records.
+- **Golden tests validate help output:** The `./help` golden test ensures descriptions render correctly in aligned columns. When help text changes intentionally, update `tests/help/expected`.
+
+### Library/Example Split (2026-05-04)
+- **Library/example separation:** End-user apps live in `example/` with their own `.ipkg` that depends on the installed library via `-p optparse-applicative`. The flake test script (`run-tests`) builds both sequentially: library first, then example.
+- **Symlink resolution workaround:** Idris 0.8 package dependency resolution requires `idris2 --install <lib>.ipkg` before building dependent packages with `-p <lib>`. Without this, `Module X not found` errors occur.
+- **Avoid bash builtin shadowing:** The flake.nix test script was renamed from `test` to `run-tests` to prevent clashing with the built-in shell operator of the same name.
+
+### General Learnings (Pre-2026-05-04)
 - **Python edits via `nix develop -c python3`** are reliable for complex indentation-sensitive changes in Idris files
 - **Never combine steps** — the 8-step workflow prevents cascading type errors that take hours to debug
 - **`mutual` blocks work reliably** in Idris 0.8; prefer them over forward references when possible
@@ -173,6 +299,27 @@ isUserArg x = case unpack x of
 - Added `CollectResult` type: success/failure for collection phase
 - All mutual helpers (`getAllFlagNames`, `checkFlag`, etc.) live in top-level mutual block in Run.idr
 - Two-pass functions exportable; single-pass retained for backward compat
+
+## Help Text & Library/Example Split (2026-05-04)
+
+### Changes Made
+1. **Help metadata in GADT:** Flag/Option/Argument now carry optional `helpText : Maybe String` field for full introspection without external registries
+2. **mhelp combinator reconstructs parser nodes** with populated descriptions (was a no-op passthrough)
+3. **Library/example separation:** Moved Main.idr, TestParse.idr and their ipkg to `example/`. Library is pure; example depends on installed library via `-p optparse-applicative`
+4. **Subcommand data types replaced enum pattern:** `CmdConfig : Type` with constructors (`BuildCmd`, `InitCmd`, etc.) instead of flat enum
+
+### Session Learnings (2026-05-04)
+- **Help metadata propagation works via GADT fields** — no external registry needed. mhelp/metadataMod populate descriptions, collectEntries extracts into HelpEntry records, formatHelp renders aligned columns with descriptions visible in output
+- **Library/example split requires `-p` flag and prior install:** `idris2 -p optparse-applicative --build example/...ipkg` depends on the library being installed first via `idris2 --install optparse-applicative.ipkg`. The flake's `run-tests` script (renamed from `test`) handles this automatically
+- **Subcommand routing requires distinct data types** — flat enums (`data Cmd = ...`) don't carry per-subcommand configuration. Switching to GADT-style constructors (`BuildCmd { optimize : Bool }`, etc.) enables subcommand-specific options
+
+### Golden Test Update
+Help golden test output now shows descriptions for each option:
+```
+<pos> <FILE>    Input files to process
+-o --output <ARG>    Specify output file
+-v --verbose     
+```
 
 ## Beta2 Bug Fixes (2026-05-03)
 

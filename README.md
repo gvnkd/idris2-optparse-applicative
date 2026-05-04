@@ -2,7 +2,7 @@
 
 A type-safe command-line option parser library for Idris2, built on a **free applicative functor** architecture. Inspired by Haskell's optparse-applicative, this library allows you to describe CLI interfaces as pure data structures that can be parsed, introspected, and extended.
 
-**Status:** Beta Release ✅ (Beta2 complete) — Two-pass parser stabilizes positional interleaving. Core interpreter with mutual finalizers, typed readers, subcommands, bash completion, modifiers, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers.
+**Status:** Beta Release ✅ (Beta2 complete) — Two-pass parser stabilizes positional interleaving. Core interpreter with mutual finalizers, typed readers, subcommands with per-command options, bash completion, modifiers, full help text introspection, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers.
 
 ---
 
@@ -31,30 +31,37 @@ Requires Idris2 v0.8.0 or later.
 **Using Nix (recommended):**
 
 ```bash
-nix develop --command build   # Build the library and executable
-nix develop --command test    # Run the full test suite
+nix develop --command build      # Build the library only
+nix develop --command run-tests  # Build lib + example + run golden tests
 ```
 
 Inside `nix develop` shell, commands are available directly:
 
 ```bash
-build   # Build the library and executable
-test    # Run the full test suite
+build       # Build the library only
+run-tests   # Build library, install it, build example executable, then run golden tests
 ```
 
 **Manual build:**
 
 ```bash
+# 1. Build the pure library
 idris2 --build optparse-applicative.ipkg
+
+# 2. Install to user registry (required before building examples)
+idris2 --install optparse-applicative.ipkg
+
+# 3. Build example application that depends on the library
+idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
 ```
 
 Run the demo executable:
 
 ```bash
-./build/exec/optparse-test --help       # Not yet implemented
-./build/exec/optparse-test -v
-./build/exec/optparse-test -o file.txt
-./build/exec/optparse-test -v -o out.txt file1.txt file2.txt
+./build/exec/optparse-test --help       # Full help with aligned columns and descriptions
+./build/exec/optparse-test status      # Subcommand (status is default)
+./build/exec/optparse-test -v          # Verbose flag only
+./build/exec/optparse-test -o file.txt main.idr lib.idr  # Files + output option
 ```
 
 ### Minimal Example
@@ -502,7 +509,7 @@ This project uses Idris2's type holes extensively during development. Follow thi
 
 ### Beta2 (Complete ✅)
 - [x] Two-pass parser for positional interleaving support — resolves out-of-order flag/argument mixing
-- [ ] Full help text introspection (`usage`, `helpText`)
+- [x] Full help text introspection (`usage`, `helpText`, aligned column rendering, per-option descriptions via `mhelp`)
 - [ ] Environment variable IO integration via getEnv
 - [ ] Negative integer and floating point parsing in Validation
 - [ ] Lazy unbounded `many`/`some` with explicit depth limits

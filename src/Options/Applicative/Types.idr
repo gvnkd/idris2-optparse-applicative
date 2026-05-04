@@ -79,3 +79,19 @@ data CollectResult : Type where
   Collected      : ParseBindings -> CollectResult
   CollectFailure : ParseError -> CollectResult
 
+||| Information about a single help entry extracted from a parser tree.
+public export
+record HelpEntry where
+  constructor MkHelpEntry
+  optionNames  : List String        -- e.g. ["--output", "-o"]
+  metavar      : String             -- e.g. "FILE", "ARG"  
+  description  : Maybe String       -- optional help text
+
+||| Result of help text generation for a parser tree.
+public export
+record HelpInfo where
+  constructor MkHelpInfo
+  progName     : String            -- program name from usage line
+  header       : String            -- short description
+  entries      : List HelpEntry    -- all leaf options/flags/arguments
+

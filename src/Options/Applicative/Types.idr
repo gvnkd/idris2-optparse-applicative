@@ -63,4 +63,19 @@ Alternative Parser where
   empty = Fail
   p1 <|> p2 = Alt p1 (force p2)
 
+-- ||| Two-Pass Parsing Infrastructure (Phase 1)
+
+||| Collected bindings from Pass 1 (global argument scan).
+public export
+record ParseBindings where
+  constructor MkParseBindings
+  flags       : List (List String, Bool)       -- Flag names and whether they were present
+  options     : List (List String, Maybe String) -- Option names and their values  
+  positionals : List String                    -- Unmatched arguments in order
+
+||| Result of Pass 1: either successful bindings or a collection error.
+public export
+data CollectResult : Type where
+  Collected      : ParseBindings -> CollectResult
+  CollectFailure : ParseError -> CollectResult
 

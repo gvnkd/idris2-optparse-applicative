@@ -1,5 +1,5 @@
 === Parsed config ===
 verbose    = False
 output     = stdout
-inputFiles = []
+inputFiles = ["file1.txt", "file2.txt"]
 =====================

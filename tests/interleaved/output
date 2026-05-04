@@ -1,5 +1,5 @@
 === Parsed config ===
 verbose    = True
-output     = stdout
+output     = results.json
 inputFiles = ["src/Main.idr"]
 =====================

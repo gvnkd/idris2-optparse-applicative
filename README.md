@@ -2,7 +2,7 @@
 
 A type-safe command-line option parser library for Idris2, built on a **free applicative functor** architecture. Inspired by Haskell's optparse-applicative, this library allows you to describe CLI interfaces as pure data structures that can be parsed, introspected, and extended.
 
-**Status:** Beta Release ✅ (Beta2 complete) — Two-pass parser stabilizes positional interleaving. Core interpreter with mutual finalizers, typed readers, subcommands with per-command options, bash completion, modifiers, full help text introspection, and IO integration verified. Digit accumulation fixed for autoInt/autoNat readers.
+**Status:** v0.4.0 ✅ — Subcommand flag scoping verified (cross-subcommand flags rejected). Two-pass parser with 23 library golden tests + 2 example tests. Command GADT enables proper per-subcommand option isolation.
 
 ---
 
@@ -11,11 +11,12 @@ A type-safe command-line option parser library for Idris2, built on a **free app
 - **Purely functional CLI parsing** — parsers are immutable data structures (free applicatives)
 - **Type-safe composition** — combine parsers with `<*>` and `<|>`
 - **Applicative/Alternative/Functor instances** — full typeclass hierarchy
-- **Subcommands** — nested command trees via `Alt` branching
+- **Subcommands** — nested command trees via `Command` GADT constructor
+- **Subcommand flag scoping** — cross-subcommand flags (e.g., `clean --template`) rejected automatically
 - **Multi-value options** — bounded repetition with `manyUpTo` / `someUpTo`
 - **Bash completion** — generate `complete -W` scripts from parser introspection
 - **Modifier system** — configure options with `long`, `short`, `help`, `metavar`, `value`
-- **Help text formatting** — `alignColumns` and `formatOption` utilities
+- **Help text formatting** — grouped sections (global opts + per-subcommand), aligned columns, descriptions via `mhelp`
 - **Error handling** — structured `ParseError` with human-readable rendering
 - **Environment variable placeholders** — `envOption` for structural fallback
 - **Validation framework** — `OptReader` typed converters with `validate` predicates
@@ -31,15 +32,17 @@ Requires Idris2 v0.8.0 or later.
 **Using Nix (recommended):**
 
 ```bash
-nix develop --command build      # Build the library only
-nix develop --command run-tests  # Build lib + example + run golden tests
+nix develop --command build              # Build the library only
+nix develop --command run-tests         # Build lib + test fixture, run 23 library golden tests
+nix develop --command run-example-tests # Build lib + example, run 2 example golden tests
 ```
 
 Inside `nix develop` shell, commands are available directly:
 
 ```bash
-build       # Build the library only
-run-tests   # Build library, install it, build example executable, then run golden tests
+build              # Build the library only
+run-tests          # Build lib, install it, build test fixture, run 23 lib golden tests
+run-example-tests  # Build lib, install it, build example executable, run 2 example golden tests
 ```
 
 **Manual build:**
@@ -58,10 +61,9 @@ idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
 Run the demo executable:
 
 ```bash
-./build/exec/optparse-test --help       # Full help with aligned columns and descriptions
-./build/exec/optparse-test status      # Subcommand (status is default)
-./build/exec/optparse-test -v          # Verbose flag only
-./build/exec/optparse-test -o file.txt main.idr lib.idr  # Files + output option
+./example/build/exec/optparse-test --help            # Full help with grouped sections and descriptions
+./example/build/exec/optparse-test clean -n          # Subcommand + flag (-n/--dry-run)
+./example/build/exec/optparse-test init --template vue  # Subcommand + option (--template)
 ```
 
 ### Minimal Example
@@ -98,29 +100,30 @@ The `Parser a` type is a GADT representing a CLI parser as an abstract syntax tr
 
 ```idris
 data Parser : Type -> Type where
-  Flag      : List String -> Parser Bool
-  Option    : List String -> String -> Parser String
-  Argument  : String -> Parser String
+  Flag      : List String -> Maybe String -> Parser Bool
+  Option    : List String -> String -> Maybe String -> Parser String
+  Argument  : String -> Maybe String -> Parser String
+  Command   : String -> Parser a -> Parser a     -- tags subparser with command name
   Pure      : a -> Parser a
   App       : Parser (a -> b) -> Parser a -> Parser b
   Alt       : Parser a -> Parser a -> Parser a
   Fail      : Parser a
 ```
 
-- **Primitives:** `Flag`, `Option`, `Argument` are the leaf constructors
+- **Primitives:** `Flag`, `Option`, `Argument` are the leaf constructors (carry optional help text)
+- **Command scoping:** `Command n px` tags each subparser branch with its name for dispatch routing
 - **Combinators:** `Pure`, `App`, `Alt`, `Fail` form the applicative structure
-- **Interpretation:** `Run.idr` folds over the tree to consume CLI arguments
 
 This design separates **description** from **execution** — the same `Parser` tree can be:
-1. Executed to parse real CLI arguments
-2. Introspected to generate help text
+1. Executed to parse real CLI arguments (two-pass: collectBindings → applyBindings)
+2. Introspected to generate grouped help text (global opts + per-subcommand sections)
 3. Traversed to extract option names for bash completion
 
 ### Typeclass Hierarchy
 
 ```idris
 -- Functor: map a function over a parser
-map f (Flag names) = App (Pure f) (Flag names)
+map f (Flag names h) = App (Pure f) (Flag names h)
 
 -- Applicative: pure value and sequential application
 pure = Pure
@@ -131,22 +134,30 @@ empty = Fail
 p1 <|> p2 = Alt p1 (force p2)
 ```
 
-### Interpreter
+### Two-Pass Interpreter
 
-The interpreter uses mutual recursion for correct applicative composition:
+The interpreter uses a two-phase architecture for correct positional interleaving:
 
-- `consumeArgs` walks argument lists and matches against parser tree leaves
-- `reduceApp` processes function parsers (`pf`) before argument parsers (`pa`) to prevent starvation  
-- `finalizeParser/ finalizeApp` mutual block handles end-of-input defaults (Flags → False, Options → error)
-- **Processing order:** pf reduced first, then pa, then application `f x` matches standard applicative semantics
+**Pass 1 — Collection (`collectBindings`):** Global scan of all CLI args into flat binding state (`ParseBindings`)
+- Flags matched by name → tracked as `(List String, Bool)` pairs
+- Options consume next arg as value → tracked as `(List String, Maybe String)` pairs  
+- Remaining strings accumulate in order as positionals
 
-**Key behaviors:**
-- **Flags:** match by name → True; absent → default False via finalization
-- **Options:** StepMore pattern forces two-arg consumption (flag + value) through consumeArgs  
-- **Arguments:** greedy consumption of next available arg
-- **App nodes:** pf-first reduction prevents argument starvation in nested compositions
-- **Alt nodes:** left-to-right try with proper backtracking on StepMore mismatches  
-- **Empty args:** mutual finalizers apply sensible defaults or structured errors
+**Pass 2 — Application (`applyBindings`):** Walk parser tree once, dispatch on command names
+- Positional arguments matching registered `Command` names route to corresponding subparser branches
+- Nested flags/options resolved via recursive collect+apply cycles per subcommand
+- Mutual finalizers handle end-of-input defaults (Flags → False)
+
+### Subcommand Flag Scoping
+
+Cross-subcommand flag injection is automatically rejected:
+
+```bash
+$ optparse-test clean --template          # Error: Unknown argument: --template (belongs to init)
+$ optparse-test build -n                  # Error: Unknown argument: -n           (belongs to clean)
+```
+
+This works because `Command` nodes isolate scope — Pass 1 only collects top-level global flags. Once a command name is dispatched in Pass 2, subcommand-specific flags are validated within their own collection cycle.
 
 ---
 
@@ -160,9 +171,7 @@ The interpreter uses mutual recursion for correct applicative composition:
 | `strOption` | `List String -> Parser String` | String option with given names |
 | `argument` | `String -> Parser String` | Positional argument with metavar |
 | `option` | `List String -> String -> Parser String` | Option with default value |
-| `subparser` | `List (String, Parser a) -> Parser a` | Command dispatcher |
-| `command` | `String -> Parser a -> (String, Parser a)` | Named subcommand |
-| `info` | `Parser a -> String -> Parser a` | Attach description (passthrough) |
+| `subparser` | `List (String, Parser a) -> Parser a` | Command dispatcher wrapping branches with `Command` tags |
 
 ### Modifiers (`Options.Applicative.Modifiers`)
 
@@ -178,12 +187,10 @@ record Mod where
 | Function | Description |
 |----------|-------------|
 | `defaultMod` | Empty modifier config |
-| `long` | Add `--name` style option |
-| `short` | Add `-n` style option |
-| `help` | Set help text |
-| `metavar` | Set metavariable placeholder |
+| `long` / `short` | Add `--name`/`-n` style options |
+| `help` / `metavar` | Set help text and metavariable placeholder |
 | `value` | Set default value |
-| `applyMod` | Generate `Parser String` from `Mod` |
+| `applyMod` | Generate `Parser String` from `Mod` config |
 
 ### Multi-Value (`Options.Applicative.Multi`)
 
@@ -191,334 +198,97 @@ record Mod where
 |----------|-----------|-------------|
 | `manyUpTo` | `Nat -> Parser a -> Parser (List a)` | Zero to N occurrences |
 | `someUpTo` | `Nat -> Parser a -> Parser (List a)` | One to N occurrences |
-| `concatOptions` | `Parser (List a) -> Parser (List a) -> Parser (List a)` | Concat two list parsers |
 
-**Note:** Unbounded `many`/`some` were removed in Beta due to infinite AST expansion. Use `manyUpTo`/`someUpTo` with explicit bounds.
+### Help (`Options.Applicative.Help`)
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `mhelp` | `Parser a -> String -> Parser a` | Attach help description to any parser node |
+| `collectHelpInfo` | `String -> Parser a -> HelpInfo` | Separate global opts from per-command entries for grouped rendering |
 
 ### Execution (`Options.Applicative.Run`)
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `runParser` | `Parser a -> List String -> ParseResult a` | Parse explicit argument list |
-| `runParserWith` | `Parser a -> List String -> ParseResult a` | Alias for `runParser` |
-| `execParser` | `HasIO io => Parser a -> io (ParseResult a)` | Parse `getArgs` |
-| `customExecParser` | `HasIO io => Parser a -> io a` | Parse and exit on failure |
-
-### Error Handling (`Options.Applicative.Error`)
-
-```idris
-data ParseError = MissingOption String
-                | InvalidOption String String
-                | UnexpectedError String
-```
-
-| Function | Description |
-|----------|-------------|
-| `renderError` | Convert `ParseError` to human-readable string |
-| `exitWithError` | Print error and return |
-| `missingOptionError` | Format missing option message |
-| `invalidOptionError` | Format invalid value message |
-| `unexpectedError` | Format unexpected argument message |
-
-### Validation (`Options.Applicative.Validation`)
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `mkReader` | `Type -> String -> (String -> Maybe a) -> OptReader a` | Create typed reader |
-| `optionWithReader` | `List String -> OptReader a -> Parser (Maybe a)` | Option with typed reader |
-| `validate` | `(String -> Bool) -> String -> String -> Either String String` | Predicate validator |
-| `autoInt` | `OptReader Int` | Integer reader |
-| `autoNat` | `OptReader Nat` | Natural number reader |
-| `autoDouble` | `OptReader Double` | Floating point reader (placeholder) |
-| `str` | `OptReader String` | Identity reader |
-
-### Bash Completion (`Options.Applicative.BashCompletion`)
-
-| Function | Signature | Description |  
-|----------|-----------|-------------|
-| `isCompletionRequest` | `List String -> Bool` | Detect `--bash-completion` flag in args |
-| `optionNames` | `Parser a -> List String` | Introspect parser tree for all flag/option names |
-| `bashCompletionScript` | `String -> Parser a -> String` | Generate shell completion script (`complete -W "names" prog`) |
-
-**Note:** Bash completion generation works by traversing the Parser AST to extract leaf node names (Flags, Options) without executing the parser.
-
-### Environment (`Options.Applicative.Env`)
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `envOption` | `List String -> String -> Parser String` | Option with env var placeholder |
-| `envOptionWithDefault` | `List String -> String -> String -> Parser String` | Option with env var default |
-
-**Note:** Environment variable resolution is structural only (no `getEnv` IO) in Beta.
-
----
-
-## Examples
-
-### Flags and Options
-
-```idris
-parser : Parser (Bool, String)
-parser = pure MkPair 
-       <*> flag' ["-v", "--verbose"]
-       <*> option ["-o", "--output"] "stdout"
-  where MkPair b s = (b, s)
-
--- ./prog -v -o file.txt  =>  Success (True, "file.txt")
--- ./prog                 =>  Success (False, "stdout")
-```
-
-### Positional Arguments
-
-```idris
-parser : Parser (List String)
-parser = manyUpTo 16 (argument "FILE")
-
--- ./prog a.txt b.txt c.txt  =>  Success ["a.txt", "b.txt", "c.txt"]
--- ./prog                    =>  Success []
-```
-
-### Subcommands
-
-```idris
-data Cmd = Init | Build | Clean
-
-cmdParser : Parser Cmd
-cmdParser = subparser 
-    [ ("init",  pure Init)
-    , ("build", pure Build)  
-    , ("clean", pure Clean)
-    ]
-
--- ./prog build  =>  Success Build
--- ./prog test   =>  Failure (MissingOption "Unsatisfied parser")
-```
-
-### Modifiers
-
-```idris
--- Build a modifier configuration step by step
-verboseMod : Mod  
-verboseMod = long "verbose" 
-           |> short "v"
-           |> help "Enable verbose output"
-
--- Apply to create a parser
-parser : Parser String
-parser = applyMod verboseMod
-
--- Or combine with other parsers using Applicative composition
-combinedParser : Parser (Bool, String)
-combinedParser = pure MkPair
-               <*> flag' ["-v"]  
-               <*> applyMod verboseMod
-  where MkPair b s = (b, s)
-```
-
-### Bash Completion
-
-```idris
-script : String
-script = bashCompletionScript "myapp" myParser
-
--- Output:
--- #!/bin/bash
--- complete -W "-v --verbose -o --output" myapp
-```
+| `runParserWith` | `Parser a -> List String -> ParseResult a` | Two-pass parse explicit argument list |
+| `execParser` | `HasIO io => Parser a -> io (ParseResult a)` | Parse from system args via `getArgs` |
+| `customExecParser` | `HasIO io => Parser a -> io a` | Parse and exit on failure with rendered error text |
 
 ---
 
 ## Testing
 
-The project uses **Test.Golden** (from the Idris2 standard library) for regression testing. Each test is a shell script that invokes the parser with specific arguments and compares output against a golden `expected` file.
+The project uses **Test.Golden** (from the Idris2 standard library) for regression testing. A dedicated test fixture (`tests/app/`) runs 23 library golden tests, while 2 minimal example tests verify the demo application.
 
 ### Running Tests
 
 ```bash
 # Via Nix flake (recommended)
-nix develop --command test
+nix develop --command run-tests         # 23 library golden tests via test fixture
+nix develop --command run-example-tests # 2 example golden tests against demo app
 
-# Or inside nix develop shell
-test
+# Manual runs
+cd tests/app && idris2 -p optparse-applicative --build test-app.ipkg   # build fixture
+cd ../../tests && idris2 --build tests.ipkg && \
+  ./build/test/exec/runtests ../app/build/exec/optparse-test-fixture    # run 23 tests
 
-# Manual run
-cd tests && idris2 --build tests.ipkg
-./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
+# Example app tests
+(cd example/tests && idris2 --build tests.ipkg) && \
+  cd build/test/exec && ./runtests ../../../../example/build/exec/optparse-test  # run 2 tests
 ```
 
-### Test Coverage
+### Test Coverage (25 total)
 
-| Test | Arguments | Validates |
-|------|-----------|-----------|
-| `no-args` | `[]` | Default values (verbose=False, output="stdout") |
-| `flag-only` | `["-v"]` | Flag parsing |
-| `option-value` | `["-o", "results.json"]` | Option with value |
-| `positionals` | `["file1.txt", "file2.txt"]` | Positional arguments |
-| `full-combo` | `["-v", "-o", "out.txt", "f1.txt", "f2.txt"]` | Flags + options + positionals |
-| `interleaved` | `["--output", "results.json", "-v", "src/Main.idr"]` | Mixed order parsing |
+**Library (23 golden tests):** Flags, options, positionals, interleaving, full combos, help text generation, subcommand routing/scoping/validation (correct flags per command + cross-subcommand rejection).
 
-### Updating Golden Files
-
-When parser behavior intentionally changes, update expected outputs interactively:
-
-```bash
-./build/test/exec/runtests $(realpath ../build/exec/optparse-test) --interactive
-```
-
-### TestParse.idr
-
-The project also includes `TestParse.idr` with programmatic sanity checks for REPL usage:
-
-```idris
-export testEmpty : ParseResult ToolConfig
-testEmpty = runParserWith mainParser []
-
-export testFullCombo : ParseResult ToolConfig
-testFullCombo = runParserWith mainParser ["-v", "-o", "out.txt", "file1.txt", "file2.txt"]
-```
+**Example (2 golden tests):** `basic` (-v flag), `help` (grouped output verification).
 
 ---
 
 ## Known Issues & Limitations
 
-### Positional Arg Interleaving (Fixed ✅)
+### Integer Parsing
 
-Beta2 introduced a two-pass parser that eliminates the single-pass limitation:
-- **Pass 1:** Global scan of all CLI args into flat binding state (flags/options/positionals)
-- **Pass 2:** Tree traversal applies bindings regardless of argument order
-
-All interleaving patterns now work correctly:
-```bash
-./prog -v -o out.txt file1.txt          # ✅ flag → option → positional
-./prog -o out.txt -v file1.txt         # ✅ option before flag
-./prog file1.txt -v -o out.txt file2.txt  # ✅ positionals interspersed with flags
-```
-
-Golden test `interleaved` validates mixed-order parsing.
-
-### Integer Parsing (Fixed)
-
-Beta2 resolved the `readNatStr` digit accumulation bug. The reader now properly parses decimal digits:
-
-```idris
-readNat "12345" -- Returns Just 12345  
-readInt "99"   -- Returns Just 99
-```
-
-**Status:** ✅ Working correctly in current Beta release. `autoInt`/`autoNat` readers produce accurate numeric values.
-
-**Note:** Negative integers and floating point (`autoDouble`) remain structural placeholders for future refinement.
+`autoInt`/`autoNat` digit accumulation fixed. Negative integers and floating point (`autoDouble`) remain structural placeholders.
 
 ### Unbounded Recursion
 
-`many`/`some` were removed in Beta. Use `manyUpTo n` / `someUpTo n` with explicit bounds to prevent infinite AST expansion and stack overflow.
+Unbounded `many`/`some` were removed due to infinite AST expansion. Use `manyUpTo n` / `someUpTo n` with explicit bounds.
 
 ### Environment Variables
 
-`envOption`/`envOptionWithDefault` create parsers with placeholder defaults. No actual `getEnv` IO is performed in Beta.
-
-### Help Text Introspection
-
-`usage` and `helpText` generation are deferred to Beta2. `formatOption` and `alignColumns` work for manual help construction.
-
----
-
-## Module Dependency Graph
-
-```
-Types
-  ^
-  |
-Builder ----> Run ----> Help
-  |           |
-  v           v
-Modifiers  Subparser
-  |           |
-  v           v
-Error    BashCompletion
-  ^
-  |
-Multi
-  |
-  v
-Validation ----> Env
-```
+`envOption`/`envOptionWithDefault` create structural placeholders only — no actual `getEnv` IO performed yet.
 
 ---
 
 ## Project Structure
 
 ```
-src/
-  Options/
-    Applicative/
-      Types.idr           -- Core GADT + typeclass instances
-      Builder.idr         -- DSL combinators
-      Run.idr             -- Parser interpreter
-      Error.idr           -- Error rendering
-      Modifiers.idr       -- Option modifier system
-      Subparser.idr       -- Subcommand support
-      Multi.idr           -- Multi-value parsing
-      Validation.idr      -- Typed readers + validators
-      Help.idr            -- Help text utilities
-      BashCompletion.idr  -- Shell completion
-      Env.idr             -- Environment variable placeholders
-  Main.idr              -- Demo executable
-  TestParse.idr         -- Sanity tests
+src/Options/Applicative/*.idr    # Pure library (11 modules: Types, Builder, Run, Help, etc.)
+
+example/src/Examples/CliMain.idr  # Working demo app with subcommands + help grouping
+example/tests/                    # Example golden tests (basic/help)
+
+tests/app/TestMain.idr            # Test fixture binary (mirrors example CLI for lib suite)
+tests/*                           # Library golden tests (23 cases: flags, options, subcmds, etc.)
 ```
-
----
-
-## Contributing
-
-### Type Hole Workflow
-
-This project uses Idris2's type holes extensively during development. Follow this sequence:
-
-1. Write signatures with type holes: `func args = ?rhs_func`
-2. Compile immediately: `idris2 --build optparse-applicative.ipkg`
-3. Read hole types via REPL: `idris2 --repl optparse-applicative.ipkg`
-4. Fill holes one at a time, compile after each
-5. Prefer `let ... in do` or `where` over nested `do` blocks
-6. Use GADT-style data declarations
-
-### Conventions
-
-- 80 character line limit
-- 2 spaces indentation, no tabs
-- Align arrows in multi-line type signatures
-- Document all exported top-level functions
-- Use named arguments for functions with multiple args of same type
 
 ---
 
 ## Roadmap
 
-### Beta (Current Release) ✅
-- [x] Core free applicative GADT
-- [x] Functor/Applicative/Alternative instances  
-- [x] Parser interpreter with mutual finalizers and tree reduction
-- [x] Flag, Option, Argument primitives with correct consumption order
-- [x] Subcommand support via Alt branching
-- [x] Bounded multi-value parsing (`manyUpTo`, `someUpTo`)
-- [x] Modifier system (long/short/help/metavar/value)
-- [x] Error rendering and structured ParseError handling  
-- [x] Bash completion generation from parser introspection
-- [x] IO integration (`execParser` via getArgs, `customExecParser` with die())
-- [x] **Fixed:** Integer/Nat digit accumulation in typed readers ✅
-
-### Beta2 (Complete ✅)
-- [x] Two-pass parser for positional interleaving support — resolves out-of-order flag/argument mixing
-- [x] Full help text introspection (`usage`, `helpText`, aligned column rendering, per-option descriptions via `mhelp`)
-- [ ] Environment variable IO integration via getEnv
-- [ ] Negative integer and floating point parsing in Validation
-- [ ] Lazy unbounded `many`/`some` with explicit depth limits
+### v0.4.0 (Current Release) ✅
+- [x] Command GADT + subcommand flag scoping (cross-subcmd injection rejected)
+- [x] Two-pass parser with positional interleaving support  
+- [x] Help text introspection: grouped sections, aligned columns, descriptions via `mhelp`
+- [x] Test suite split: 23 lib tests + 2 example tests
 
 ### Future
+- [ ] IO-based argument fetching / environment variable resolution (`getEnv`)
+- [ ] Negative integer and floating point parsing in Validation  
+- [ ] Lazy unbounded `many`/`some` with explicit depth limits
 - [ ] Dependent-type guarantees for required/optional options
 - [ ] Config file integration
-- [ ] Man page generation
-- [ ] Zsh completion support
 
 ---
 

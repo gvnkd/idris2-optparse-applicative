@@ -19,11 +19,18 @@ src/Options/Applicative/*.idr   # Pure library (11 modules)
   Error.idr                     # ParseError rendering
 
 example/                        # Working end-user application (depends on library via `-p`)
-  Main.idr                      # Full CLI with subcommands, help text, golden tests
-  TestParse.idr                 # Unit test helpers for REPL verification
-  optparse-applicative-example.ipkg  # Package definition with `depends = optparse-applicative`
+  src/Examples/CliMain.idr      # Full CLI with subcommands, help text
+  src/Examples/TestParse.idr    # Unit test helpers for REPL verification
+  optparse-applicative-example.ipkg
+  tests/                        # Example-specific golden tests (minimal)
+    basic/                      # Smoke test: -v flag
+    help/                       # Help output verification
 
-tests/                          # Golden test harness (Test.Golden)
+tests/                          # Library golden test harness (Test.Golden)
+  app/                          # Test fixture binary
+    src/TestMain.idr            # Mirror of example CLI but lives with tests
+    test-app.ipkg               # Builds optparse-test-fixture
+  */                            # 23 golden test cases (run + expected pairs)
 ```
 
 ### Module Map (Library Only)
@@ -52,8 +59,11 @@ idris2 --install optparse-applicative.ipkg
 # Example application (depends on installed library via `-p`)
 idris2 -p optparse-applicative --build example/optparse-applicative-example.ipkg
 
-# Golden test suite (nix devShell command: run-tests)
-run-tests  # builds lib, installs it, builds example, runs golden tests
+# Library golden test suite (nix devShell command: run-tests)
+run-tests  # builds lib + test fixture, runs 23 library golden tests
+
+# Example golden test suite (nix devShell command: run-example-tests)
+run-example-tests  # builds lib + example, runs 2 example golden tests
 
 # Query hole types (REPL heredoc)
 idris2 --repl optparse-applicative.ipkg <<'EOF'
@@ -63,24 +73,6 @@ EOF
 
 # Verify current state
 git log --oneline -5 && git tag -l
-```
-src/Options/Applicative/    # Pure library (11 modules)
-  Types.idr                 # Core Parser GADT + HelpEntry, ParseBindings, etc.
-  Builder.idr               # DSL combinators: strOption, flag', argument, option, subparser
-  Run.idr                   # Two-pass interpreter + mutual finalizers
-  Modifiers.idr             # Mod record and modifier functions
-  Help.idr                  # Full help text introspection: collectEntries, mhelp, formatHelp
-  Subparser.idr             # Subcommand routing: mkConfig, progDesc, mkSubparser
-  Multi.idr                 # Bounded multi-value: manyUpTo, someUpTo
-  Validation.idr            # Typed readers (OptReader), autoInt/str/autoNat/autoDouble
-  Env.idr                   # Environment variable fallback placeholders
-  BashCompletion.idr        # Shell completion script generation
-  Error.idr                 # ParseError rendering
-
-example/                    # End-user demo application (depends on library via `-p`)
-  Main.idr                  # Working CLI with subcommands, help text, golden tests
-  TestParse.idr             # Unit test helper for REPL verification
-  optparse-applicative-example.ipkg  # Package definition with depends = optparse-applicative
 ```
 
 ### Module Map (Library)
@@ -123,13 +115,22 @@ git log --oneline -5 && git tag -l
 ```
 
 ## Golden Test Harness (Test.Golden)
-Tests live under `tests/` and use Idris2's built-in `Test.Golden` framework. Each test directory contains a `run` shell script that invokes the binary with specific arguments, and an `expected` file for output comparison. Run via:
+Tests use Idris2's built-in `Test.Golden` framework. Each test directory contains a `run` shell script that invokes a binary with specific arguments, and an `expected` file for output comparison.
 
+### Library Tests (`run-tests`)
+Builds `tests/app/test-app.ipkg` to create `optparse-test-fixture`, then runs 23 golden tests against it. The fixture mirrors the example CLI but lives with the tests so the library suite can grow without affecting the example.
+
+### Example Tests (`run-example-tests`)
+Builds `example/optparse-applicative-example.ipkg`, then runs 2 minimal golden tests (`basic`, `help`) against the actual example app. Keeps the example clean for end-users.
+
+### Manual Run
 ```bash
-cd tests && idris2 --build tests.ipkg && ./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
-```
+# Library tests
+cd tests && idris2 --build tests.ipkg && ./build/test/exec/runtests $(realpath app/build/exec/optparse-test-fixture)
 
-Golden test suite includes 7 cases covering flags, options, positionals, interleaving, help text, and full combinations. Update expected outputs with `--interactive` flag when parser behavior intentionally changes.
+# Example tests
+cd example/tests && idris2 --build tests.ipkg && ./build/test/exec/runtests $(realpath ../build/exec/optparse-test)
+```
 
 ## Known Idris 0.8 Bugs & Workarounds
 
@@ -197,14 +198,27 @@ Three states drive the interpreter loop:
 - `StepFailure` — irrecoverable error, abort with message
 - `StepMore` — partial progress, re-enter loop with remaining args
 
-### Library/Example Separation (Beta2)
-The library (`optparse-applicative.ipkg`) now contains only the core 11 modules. The example application (`example/optparse-applicative-example.ipkg`) imports all library modules and adds `Main.idr` + `TestParse.idr`. This enables end-users to reference `example/` as a working template for consuming the library via `-p optparse-applicative`.
-
-### Library/Example Separation
-The library (`optparse-applicative.ipkg`) contains only core modules. Example application lives in `example/` and depends on the installed library via `-p optparse-applicative`. The flake.nix test script (`run-tests`) builds both sequentially: library first, then example.
+### Library/Example/Test Separation (Beta2)
+The library (`optparse-applicative.ipkg`) contains only the core 11 modules. The example application (`example/`) imports the library via `-p optparse-applicative`. A dedicated test fixture (`tests/app/`) also imports the library and mirrors the example CLI for exhaustive golden testing. This three-layer structure keeps the example clean while allowing the test suite to grow.
 
 ### Subcommand Configuration Pattern
 Subcommands use dedicated data types (e.g., `CmdConfig : Type`) with per-command fields. Each subcommand parser constructs its own config variant via applicative composition. The top-level parser wraps all variants into a single `ToolConfig` record containing the global flags and the polymorphic command result.
+
+### Test Suite Split (2026-05-04)
+Library tests and example tests are now separate:
+
+**Library tests** (`tests/`, `run-tests`):
+- Dedicated test fixture in `tests/app/` (`TestMain.idr` + `test-app.ipkg`)
+- 23 golden tests covering flags, options, positionals, subcommands, help text
+- Can grow without affecting the example app
+- Fixture is not installed; built on demand by `run-tests`
+
+**Example tests** (`example/tests/`, `run-example-tests`):
+- 2 minimal golden tests (`basic`, `help`) against the actual example app
+- Keeps example clean and understandable for end-users
+- Verifies the example app still works after library changes
+
+**Why:** The library test suite exercises edge cases and failure modes that would clutter the example. End-users should see a simple, clear demo; the test fixture handles exhaustive coverage.
 
 ## Style Guide Compliance
 See `STYLE.md` in project root. Key conventions followed:
@@ -250,8 +264,9 @@ Holes inside instance bodies (`Functor where ...`) are **NOT** visible to REPL. 
 - **Help metadata in GADT fields:** Storing `helpText : Maybe String` directly on Flag/Option/Argument constructors enables full introspection without external registries. The `mhelp` combinator reconstructs parser nodes with attached descriptions, which `collectEntries` then extracts into `HelpEntry` records.
 - **Golden tests validate help output:** The `./help` golden test ensures descriptions render correctly in aligned columns. When help text changes intentionally, update `tests/help/expected`.
 
-### Library/Example Split (2026-05-04)
-- **Library/example separation:** End-user apps live in `example/` with their own `.ipkg` that depends on the installed library via `-p optparse-applicative`. The flake test script (`run-tests`) builds both sequentially: library first, then example.
+### Library/Example/Test Split (2026-05-04)
+- **Three-layer structure:** Library (`src/`), example (`example/`), library test fixture (`tests/app/`). Example and test fixture both depend on installed library.
+- **Two test commands:** `run-tests` (23 lib tests via fixture) and `run-example-tests` (2 example tests). Both build lib first, then their respective target.
 - **Symlink resolution workaround:** Idris 0.8 package dependency resolution requires `idris2 --install <lib>.ipkg` before building dependent packages with `-p <lib>`. Without this, `Module X not found` errors occur.
 - **Avoid bash builtin shadowing:** The flake.nix test script was renamed from `test` to `run-tests` to prevent clashing with the built-in shell operator of the same name.
 
@@ -294,12 +309,23 @@ isUserArg x = case unpack x of
 - **Interleaving fixed by design:** global scan decouples argument order from parser tree shape
 - **Golden tests validate correctness:** all 7 golden cases pass including `interleaved` and `flag-only`
 
-### Known Limitation: Subcommand Field Population (2026-05-04)
-**Symptom:** Per-subcommand options/flags (e.g., `-n/--dry-run` for clean, `--template` for init) do not populate in parsed config despite subcommand routing working correctly.
+### Subcommand Flag Scoping Fix (2026-05-04) — commit 0b432f2
+**Symptom (fixed):** Per-subcommand options/flags were collected globally, so `clean --template` (init's flag) was silently accepted instead of rejected.
 
-**Root cause:** Pass 1 collects flags/options globally BEFORE Pass 2 dispatches positionals to matching Command branches. Nested flags under Command nodes aren't visible during global collection phase yet (they resolve structurally but values remain defaults since their names weren't registered at collection time).
+**Fix:** Three changes to `Run.idr`:
+1. **`getAllFlagNames`/`getAllOptionNames`** — no longer recurse into `Command` nodes. Global Pass 1 only sees top-level flags/options.
+2. **`collectBindings`** — tracks `afterCmd : Bool`. Once a command name is encountered, all remaining args go to positionals (no global binding collection). Subcommand flags are handled by the subcommand parser.
+3. **`applyBindings.go`** — return type changed to `Maybe (Either ParseError (x, List String))`:
+   - `Nothing` = soft failure (command mismatch, missing option with Alt fallback)
+   - `Just (Left err)` = hard error (matched command but invalid args)
+   - `Just (Right ...)` = success
+4. **Command dispatch** — when a `Command` matches, `applyBindings` recursively calls itself on the inner parser. Each subcommand gets its own `collectBindings` + `applyBindings` cycle.
 
-**Fix path:** Requires conditional flag registration post-dispatch or two-phase name discovery where subcmd leaves are temporarily hoisted for Pass 1 visibility, then pruned back after routing. Deferred until core routing stabilizes further.
+**Result:** Cross-subcommand flags are rejected:
+```
+$ optparse-test clean --template
+Error: Unknown argument: --template
+```
 
 ### Architecture Changes
 - Added `ParseBindings` record to `Types.idr`: flags, options, positionals lists
@@ -317,7 +343,7 @@ isUserArg x = case unpack x of
 
 ### Session Learnings (2026-05-04)
 - **Help metadata propagation works via GADT fields** — no external registry needed. mhelp/metadataMod populate descriptions, collectEntries extracts into HelpEntry records, formatHelp renders aligned columns with descriptions visible in output
-- **Library/example split requires `-p` flag and prior install:** `idris2 -p optparse-applicative --build example/...ipkg` depends on the library being installed first via `idris2 --install optparse-applicative.ipkg`. The flake's `run-tests` script (renamed from `test`) handles this automatically
+- **Library/example split requires `-p` flag and prior install:** `idris2 -p optparse-applicative --build example/...ipkg` depends on the library being installed first via `idris2 --install optparse-applicative.ipkg`. The flake's `run-tests` and `run-example-tests` scripts handle this automatically
 - **Subcommand routing requires distinct data types** — flat enums (`data Cmd = ...`) don't carry per-subcommand configuration. Switching to GADT-style constructors (`BuildCmd { optimize : Bool }`, etc.) enables subcommand-specific options
 
 ### Golden Test Update
@@ -346,7 +372,7 @@ Wraps each subparser branch with its command name for dispatch matching. Enables
 - **Command dispatch happens in Pass 2 only:** Positionals must match registered command names before being consumed by Argument nodes. This prevents positional interleaving from corrupting subcommand routing during global collection.
 - **Help output groups options per-command:** `collectHelpInfo` separates global opts (outside Command branches) from per-subcmd entries via separate collector functions. Golden test verifies proper section formatting with aligned columns under Options/Subcommands headers.
 
-### Help Output Format (Golden Verified — 7/7 tests pass)
+### Help Output Format (Golden Verified — 23/23 lib tests, 2/2 example tests pass)
 ```
 optparse-test: Demo CLI parser showcasing optparse-applicative features
 Usage: optparse-test [[FILE]]
@@ -383,3 +409,36 @@ Subcommands:
 - All interdependent helpers (reduceApp/tryLeftOrRight/goReduction) now in top-level mutual block
 - Mutual block must include all functions with circular dependencies; order matters within block
 - Idris 0.8 processes where clauses sequentially; nested definitions cause forward reference errors
+
+## Test Suite Split & Subcommand Scoping (2026-05-04) — commit 0b432f2
+
+### Subcommand Flag Scoping Fix
+**Problem:** Pass 1 collected bindings from the entire parser tree globally. `clean --template` (init's flag) was silently accepted — the `--template` binding was collected globally, then ignored in Pass 2.
+
+**Solution (Run.idr):**
+1. `getAllFlagNames`/`getAllOptionNames` no longer recurse into `Command` nodes
+2. `collectBindings` tracks `afterCmd : Bool` — once command name seen, remaining args go to positionals
+3. `applyBindings.go` returns `Maybe (Either ParseError ...)` for soft vs hard failures
+4. Command dispatch recursively calls `collectBindings` + `applyBindings` on inner parser
+
+**Result:** Cross-subcommand flags rejected:
+```
+$ optparse-test clean --template
+Error: Unknown argument: --template
+```
+
+### Test Suite Split
+**Library tests** (`tests/`, `run-tests`):
+- Test fixture: `tests/app/TestMain.idr` + `test-app.ipkg`
+- 23 golden tests: flags, options, positionals, interleaving, subcommands, help
+- Dedicated binary (`optparse-test-fixture`) built on demand
+
+**Example tests** (`example/tests/`, `run-example-tests`):
+- 2 minimal golden tests: `basic` (`-v` flag), `help` (help output)
+- Runs against actual example app to verify it still works
+
+**flake.nix commands:**
+- `run-tests` — builds lib + fixture, runs 23 lib tests
+- `run-example-tests` — builds lib + example, runs 2 example tests
+
+**Rationale:** Library test suite exercises edge cases (wrong flags, missing options, all subcommands). Example stays clean and educational for end-users.

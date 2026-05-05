@@ -1,8 +1,7 @@
 module Main
-
-import Options.Applicative.Types
 import Options.Applicative.Builder
 import Options.Applicative.Run
+import Options.Applicative.Types
 
 main : IO ()
 main = do

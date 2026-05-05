@@ -130,18 +130,16 @@ consumeArgs p (arg :: rest) =
         otherResult =>
           otherResult
 
-||| Run a parser against a list of command-line arguments.
+||| Run a parser against a list of command-line arguments. 
 export runParser : Parser a -> List String -> ParseResult a
+
 runParser p args =
   case consumeArgs p args of
-    StepSuccess _ val [] =>
-      Success val
-    StepSuccess _ val leftover =>
-      Failure (UnexpectedError "Extra arguments provided")
-    StepFailure err =>
-      Failure err
+    StepSuccess _ val [] => Success val
+    StepSuccess _ val leftover => Failure (UnexpectedError "Extra arguments provided")
+    StepFailure err => Failure err
     StepMore updatedTree rest =>
-      runParser updatedTree rest
+      if not (null rest) then runParser updatedTree rest else case finalizeParser updatedTree of Just val => Success val Nothing => runParser updatedTree rest
 
 mutual
   getAllFlagNames : Parser a -> List String

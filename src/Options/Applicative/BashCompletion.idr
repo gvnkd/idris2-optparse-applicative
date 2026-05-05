@@ -29,5 +29,6 @@ optionNames p =
 -- ||| Generate a bash completion script for a parser.
 export bashCompletionScript : String -> Parser a -> String
 bashCompletionScript progName p =
-  let opts = optionNames p
-    in "#!/bin/bash\ncomplete -W \"" ++ unwords opts ++ "\" " ++ progName
+  let opts = optionNames p in "#!/bin/bash\ncomplete -W \""
+                              ++
+                                unwords opts ++ "\" " ++ progName

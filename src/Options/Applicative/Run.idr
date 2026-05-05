@@ -246,32 +246,35 @@ collectBindings p args =
             then scanBnds True (MkParseBindings fls opts (pos ++ [arg])) rest
             else
               if checkFlag p arg
-                then let names = fromMaybe [arg] (findFlagNames p arg)
-                       in scanBnds False
-                            (MkParseBindings ((names, True) :: fls) opts pos)
-                            rest
+                then let names = fromMaybe [arg]
+                                   (findFlagNames p arg) in scanBnds False
+                                                              (MkParseBindings
+                                                                 ((names, True) :: fls)
+                                                                 opts
+                                                                 pos)
+                                                              rest
                 else
                   if checkOpt p arg
-                    then let names = fromMaybe [arg] (findOptionNames p arg)
-                           in case rest of
-                                val :: rest' =>
-                                  scanBnds False
-                                    (MkParseBindings fls
-                                       ((names, Just val) :: opts)
-                                       pos)
-                                    rest'
-                                [] =>
-                                  CollectFailure
-                                    (MissingOption "Option value required")
+                    then let names = fromMaybe [arg]
+                                       (findOptionNames
+                                          p
+                                          arg) in case rest of
+                                                              val :: rest' =>
+                                                                scanBnds False
+                                                                  (MkParseBindings fls
+                                                                     ((names, Just val)
+                                                                      ::
+                                                                        opts)
+                                                                     pos)
+                                                                  rest'
+                                                              [] =>
+                                                                CollectFailure
+                                                                  (MissingOption
+                                                                     "Option value required")
                     else
-                      if isFlagLike arg
-                         &&
-                           not (checkFlag p arg) && not (checkOpt p arg)
-                        then CollectFailure
-                               (UnexpectedError ("Unknown argument: " ++ arg))
-                        else scanBnds False
-                               (MkParseBindings fls opts (pos ++ [arg]))
-                               rest
+                      if isFlagLike arg && not (checkFlag p arg) && not (checkOpt p arg)
+                        then CollectFailure (UnexpectedError ("Unknown argument: " ++ arg))
+                        else scanBnds False (MkParseBindings fls opts (pos ++ [arg])) rest
       where
         getAllCommandNames : Parser _ -> List String
         getAllCommandNames (Command n _) =
@@ -319,8 +322,7 @@ applyBindings p bnds =
     goApp pos =
       go p pos
       where
-        go : Parser
-               x -> List String -> Maybe (Either ParseError (x, List String))
+        go : Parser x -> List String -> Maybe (Either ParseError (x, List String))
         go (Pure x) pos =
           Just (Right (x, pos))
         go Fail pos =
@@ -369,18 +371,23 @@ applyBindings p bnds =
             (s :: t) =>
               case s == n of
                 True =>
-                  let subRes = case collectBindings px t of
+                  let subRes = case collectBindings
+                                      px
+                                      t of
                                  Collected bnds' =>
-                                   applyBindings px bnds'
+                                   applyBindings px
+                                     bnds'
                                  CollectFailure err =>
-                                   Failure err
-                    in case subRes of
-                         Success x =>
-                           Just (Right (x, []))
-                         Failure err =>
-                           Just (Left err)
-                         CompletionInvoked =>
-                           Just (Left (UnexpectedError "Completion invoked"))
+                                   Failure err in case subRes of
+                                                            Success x =>
+                                                              Just (Right (x, []))
+                                                            Failure err =>
+                                                              Just (Left err)
+                                                            CompletionInvoked =>
+                                                              Just
+                                                                (Left
+                                                                   (UnexpectedError
+                                                                      "Completion invoked"))
                 False =>
                   Nothing
         go (App pf px) pos =

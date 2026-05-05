@@ -13,20 +13,6 @@ optionWithReader names reader =
   map reader.readFromText $ Option names "ARG" Nothing
 -- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
 -- ||| Create a reader from a parsing function.
-
--- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
--- ||| Create a reader from a parsing function.
-
--- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
--- ||| Create a reader from a parsing function.
-
--- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
--- ||| Create a reader from a parsing function.
-
--- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
--- ||| Create a reader from a parsing function.
--- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
--- ||| Create a reader from a parsing function.
 export mkReader : (a : Type) -> String -> (String -> Maybe a) -> OptReader a
 mkReader _ name conv =
   MkOptReader name conv

@@ -7,7 +7,9 @@ public export
 data Parser : Type -> Type where
   Flag : (names : List String) -> (helpText : Maybe String) -> Parser Bool
   Option : (names : List String)
-             -> (metavar : String) -> (helpText : Maybe String) -> Parser String
+           -> (metavar : String)
+           -> (helpText : Maybe String)
+           -> Parser String
   Argument : (metavar : String) -> (helpText : Maybe String) -> Parser String
   Command : (name : String) -> Parser a -> Parser a
   Pure : a -> Parser a

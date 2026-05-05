@@ -18,8 +18,8 @@ argument metavar =
   Argument metavar Nothing
 
 ||| Create an option parser with a default value.
-export option : (names : List String)
-                  -> (defaultValue : String) -> Parser String
+export option : (names : List String) -> (defaultValue : String) -> Parser
+                                                                      String
 option names defaultValue =
   Alt (Option names "ARG" Nothing) (Pure defaultValue)
 

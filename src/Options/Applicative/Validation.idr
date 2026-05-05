@@ -82,8 +82,8 @@ export str : OptReader String
 str =
   MkOptReader "string" readString
 -- ||| Validate an option value with a predicate and error message.
-export validate : (pred : String -> Bool)
-                    -> (err : String) -> String -> Either String String
+export validate : (pred : String -> Bool) -> (err : String) -> String -> Either String
+                                                                           String
 validate pred err val =
   if pred val then Right val else Left err
 -- ||| A reader that parses natural numbers.

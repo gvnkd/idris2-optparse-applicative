@@ -57,7 +57,8 @@ collectHelpInfo pname p =
       collectCmds [] p
       where
         collectCmds : List (String, List HelpEntry)
-                        -> Parser _ -> List (String, List HelpEntry)
+                      -> Parser _
+                      -> List (String, List HelpEntry)
         collectCmds acc (Command n px) =
           (n, collectEntries' [] px) :: acc
         collectCmds acc (Alt p1 p2) =

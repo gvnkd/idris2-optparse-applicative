@@ -319,8 +319,8 @@ applyBindings p bnds =
     goApp pos =
       go p pos
       where
-        go : Parser x
-               -> List String -> Maybe (Either ParseError (x, List String))
+        go : Parser
+               x -> List String -> Maybe (Either ParseError (x, List String))
         go (Pure x) pos =
           Just (Right (x, pos))
         go Fail pos =

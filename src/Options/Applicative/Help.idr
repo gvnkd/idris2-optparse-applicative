@@ -122,15 +122,24 @@ usageLine pname p =
 -- ||| Format full help text with header, global opts, and subcommand grouping.
 export formatHelp : HelpInfo -> String
 formatHelp info =
-  headerLine ++ "\n" ++ usageLineLocal ++ "\n\nOptions:\n" ++ globalSection ++ if null
-                                                                                    (map (\(_, opts) => opts)
-                                                                                       info.subCmds)
-                                                                                 then ""
-                                                                                 else "\nSubcommands:\n" ++ cmdSection
+  headerLine
+  ++
+    "\n"
+    ++
+      usageLineLocal
+      ++
+        "\n\nOptions:\n"
+        ++
+          globalSection
+          ++
+            if null (map (\(_, opts) => opts) info.subCmds)
+              then ""
+              else "\nSubcommands:\n" ++ cmdSection
   where
     alreadySeen : HelpEntry -> List HelpEntry -> Bool
     alreadySeen new seen =
-      any (\s => s.optionNames == new.optionNames && s.metavar == new.metavar) seen
+      any (\s => s.optionNames == new.optionNames && s.metavar == new.metavar)
+        seen
     uniqueGlobalOpts : List HelpEntry
     uniqueGlobalOpts =
       foldl dedup [] info.globalOpts
@@ -143,9 +152,9 @@ formatHelp info =
       ["<pos>"] `isPrefixOf` entry.optionNames
     namesStr : HelpEntry -> String
     namesStr entry =
-      unwords entry.optionNames ++ if null entry.metavar
-                                     then ""
-                                     else " <" ++ entry.metavar ++ ">"
+      unwords entry.optionNames
+      ++
+        if null entry.metavar then "" else " <" ++ entry.metavar ++ ">"
     descStr : HelpEntry -> String
     descStr e =
       case e.description of
@@ -158,14 +167,19 @@ formatHelp info =
       (namesStr e, descStr e)
     usageLineLocal : String
     usageLineLocal =
-      "Usage: " ++ info.progName ++ if null uniqueGlobalOpts
-                                      then ""
-                                      else " [" ++ unwords
-                                                     (map
-                                                        (\e =>
-                                                           "[" ++ e.metavar ++ "]")
-                                                        (filter isPos
-                                                           uniqueGlobalOpts)) ++ "]"
+      "Usage: "
+      ++
+        info.progName
+        ++
+          if null uniqueGlobalOpts
+            then ""
+            else " ["
+                 ++
+                   unwords
+                     (map (\e => "[" ++ e.metavar ++ "]")
+                        (filter isPos uniqueGlobalOpts))
+                   ++
+                     "]"
     headerLine : String
     headerLine =
       if null info.header
@@ -176,26 +190,34 @@ formatHelp info =
       "\n" ++ alignColumns (map formatEntry uniqueGlobalOpts)
     cmdSection : String
     cmdSection =
-      concat $ intersperse "\n" $ map
-                                    (\(name, opts) =>
-                                       "  " ++ name ++ ":" ++ formatCmdOpts
-                                                                opts ++ "\n")
-                                    info.subCmds
+      concat
+      $
+        intersperse "\n"
+        $
+          map
+            (\(name, opts) => "  " ++ name ++ ":" ++ formatCmdOpts opts ++ "\n")
+            info.subCmds
       where
         formatCmdOpts : List HelpEntry -> String
         formatCmdOpts [] =
           ""
         formatCmdOpts (h :: t) =
-          "\n" ++ concat
-                    (intersperse "\n"
-                       (map
-                          (\e =>
-                             "    " ++ namesStr e ++ case e.description of
-                                                       Nothing =>
-                                                         ""
-                                                       Just d =>
-                                                         "  --  " ++ d)
-                          (h :: t)))
+          "\n"
+          ++
+            concat
+              (intersperse "\n"
+                 (map
+                    (\e =>
+                       "    "
+                       ++
+                         namesStr e
+                         ++
+                           case e.description of
+                             Nothing =>
+                               ""
+                             Just d =>
+                               "  --  " ++ d)
+                    (h :: t)))
 -- Helper: check if entry already appears in deduplicated list
 -- Deduplicate entries to avoid manyUpTo expansion noise
 -- Check if entry is positional vs named option/flag

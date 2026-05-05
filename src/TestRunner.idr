@@ -36,15 +36,13 @@ subCmds =
 
 mainParser : Parser ToolConfig
 mainParser =
-  pure
-    MkToolConfig <*> (flag'
-                        [ "-v"
-                        , "--verbose"
-                        ] `mhelp` "verbose") <*> (option ["-o", "--output"]
-                                                                "stdout" `mhelp` "output") <*> manyUpTo 64
-                                                                                                 (argument
-                                                                                                    "FILE" `mhelp` "files") <*> mkSubparser
-                                                                                                                                  subCmds
+  pure MkToolConfig
+  <*>
+    (flag' ["-v", "--verbose"] `mhelp` "verbose")
+    <*>
+      (option ["-o", "--output"] "stdout" `mhelp` "output")
+      <*>
+        manyUpTo 64 (argument "FILE" `mhelp` "files") <*> mkSubparser subCmds
 
 printResult : ParseResult ToolConfig -> IO ()
 printResult (Success cfg) =

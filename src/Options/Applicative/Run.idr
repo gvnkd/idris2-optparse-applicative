@@ -264,8 +264,9 @@ collectBindings p args =
                                   CollectFailure
                                     (MissingOption "Option value required")
                     else
-                      if isFlagLike
-                           arg && not (checkFlag p arg) && not (checkOpt p arg)
+                      if isFlagLike arg
+                         &&
+                           not (checkFlag p arg) && not (checkOpt p arg)
                         then CollectFailure
                                (UnexpectedError ("Unknown argument: " ++ arg))
                         else scanBnds False

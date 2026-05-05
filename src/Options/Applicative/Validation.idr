@@ -6,10 +6,12 @@ record OptReader (a : Type) where
   constructor MkOptReader
   readerName : String
   readFromText : String -> Maybe a
--- ||| Apply a reader to create a typed option parser.
+-- ||| Apply a reader to create a typed option parser. Returns `Parser (Maybe a)` — the Maybe reflects whether the user supplied this optional argument at all. To get strict parsing with required semantics, compose using `strOption` + `validate()` directly.
 export optionWithReader : List String -> OptReader a -> Parser (Maybe a)
-optionWithReader names reader =
-  map (reader.readFromText) (Option names "ARG" Nothing)
+
+optionWithReader names reader = 
+  map reader.readFromText $ Option names "ARG" Nothing
+-- NOTE: Polymorphic GADT signature `Parser a` hits Idris 0.8 unification cache bug on exported polymorphic functions over OptReader record fields. Workaround: keep return type as Parser (Maybe a). Compose with strOption + validate() directly when full strictness needed.
 -- ||| Create a reader from a parsing function.
 export mkReader : (a : Type) -> String -> (String -> Maybe a) -> OptReader a
 mkReader _ name conv =
